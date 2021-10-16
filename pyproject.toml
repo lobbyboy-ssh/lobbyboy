@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "gmas"
+version = "0.1.0"
+description = "Give me a server."
+authors = ["laixintao <laixintaoo@gmail.com>"]
+license = "GNU"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.dev-dependencies]
+black = "^21.9b0"
+bumpversion = "^0.6.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
