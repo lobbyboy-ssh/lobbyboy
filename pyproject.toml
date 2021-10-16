@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "gmas"
+name = "lobbyboy"
 version = "0.1.0"
 description = "Give me a server."
 authors = ["laixintao <laixintaoo@gmail.com>"]
@@ -7,6 +7,7 @@ license = "GNU"
 
 [tool.poetry.dependencies]
 python = "^3.9"
+paramiko = {extras = ["gssapi"], version = "^2.8.0"}
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
