@@ -29,12 +29,27 @@ import select
 import termios
 import tty
 import pty
+import struct
+import fcntl
+import signal
+import errno
 
 import paramiko
 from paramiko.py3compat import b, u, decodebytes
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 
+
+import termios
+import struct
+import fcntl
+
+
+def set_winsize(fd, row, col, xpix=0, ypix=0):
+    print("start write using fcntl...")
+    winsize = struct.pack("HHHH", row, col, xpix, ypix)
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+    print("write done, col={}, row={}", col, row)
 
 
 class ChanForwarder(Thread):
@@ -43,12 +58,14 @@ class ChanForwarder(Thread):
         self.chan = chan
         self.pipe = pipe
         return
+
     def run(self):
         while 1:
             try:
                 data = self.chan.recv(1)
                 print("get data from chan... {}".format(data))
-                if not data: break
+                if not data:
+                    break
                 self.pipe.write(data)
                 self.pipe.flush()
                 print("copy from chan to pipe... {}".format(data))
@@ -59,19 +76,22 @@ class ChanForwarder(Thread):
         self.pipe.close()
         return
 
+
 class PipeForwarder(Thread):
-    def __init__(self,  pipe, chan):
+    def __init__(self, pipe, chan):
         Thread.__init__(self)
         self.pipe = pipe
         self.chan = chan
         return
+
     def run(self):
         print("start reading data from pipe...")
         while 1:
             try:
                 data = self.pipe.read(1)
                 print("get date from pipe: {}".format(data))
-                if not data: break
+                if not data:
+                    break
                 self.chan.send(data)
             except socket.timeout:
                 continue
@@ -163,7 +183,27 @@ class Server(paramiko.ServerInterface):
     def check_channel_pty_request(
         self, channel, term, width, height, pixelwidth, pixelheight, modes
     ):
-        print("request pty...")
+        print(
+            "request pty...",
+            channel,
+            term,
+            width,
+            height,
+            pixelwidth,
+            pixelwidth,
+            modes,
+        )
+        self.master_fd, self.slave_fd = pty.openpty()
+        set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
+        return True
+
+    def check_channel_window_change_request(
+        self, channel, width, height, pixelwidth, pixelheight
+    ):
+        print("window change pty...", channel, width, height, pixelwidth, pixelwidth)
+        set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
+        import os 
+        os.kill(self.pid, signal.SIGWINCH)
         return True
 
 
@@ -214,37 +254,58 @@ try:
     print("Authenticated!")
 
     chan.send("\r\n\r\nWelcome to my dorky little BBS!\r\n\r\n")
-    chan.send(
-        "We are on fire all the time!  Hooray!  Candy corn for everyone!\r\n"
-    )
+    chan.send("We are on fire all the time!  Hooray!  Candy corn for everyone!\r\n")
     chan.send("Happy birthday to Robot Dave!\r\n\r\n")
 
-    command = 'ssh digitalocean'
-# command = 'docker run -it --rm centos /bin/bash'.split()
+    import time
+    time.sleep(0.5)
+    chan.send("\rhello count 3...")
+    time.sleep(0.5)
+    chan.send("\rhello count 2...")
+    time.sleep(0.5)
+    chan.send("\rhello count 1...")
 
-# save original tty setting then set it to raw mode
-    old_tty = termios.tcgetattr(sys.stdin)
-    tty.setraw(sys.stdin.fileno())
+    command = [
+        "ssh",
+        "-i",
+        "/Users/xintao.lai/Programs/tlpi-code/.vagrant/machines/default/virtualbox/private_key",
+        "-p",
+        "2222",
+        "vagrant@127.0.0.1",
+        "-t",
+    ]
+    # command = 'docker run -it --rm centos /bin/bash'.split()
 
-# open pseudo-terminal to interact with subprocess
-    master_fd, slave_fd = pty.openpty()
-    p = Popen(command,
-            preexec_fn=os.setsid,
-            stdin=slave_fd,
-            stdout=slave_fd,
-            stderr=slave_fd,
-            universal_newlines=True)
+    # open pseudo-terminal to interact with subprocess
+    import time
+
+    time.sleep(3)
+    master_fd, slave_fd = server.master_fd, server.slave_fd
+
+    p = Popen(
+        command,
+        preexec_fn=os.setsid,
+        stdin=slave_fd,
+        stdout=slave_fd,
+        stderr=slave_fd,
+        universal_newlines=True,
+    )
+    server.pid = p.pid
 
     chan_fd = chan.fileno()
     while p.poll() is None:
-        r, w, e = select.select([master_fd, chan_fd], [], [])
+        print("poll result: {}, pid={}".format(p.poll(), p.pid))
+        r, w, e = select.select([master_fd, chan_fd], [], [], 0.1)
+        print("read: {}".format(r))
         if master_fd in r:
             d = os.read(master_fd, 10240)
             chan.send(d)
+            print("read from master_fd done")
         elif chan_fd in r:
             o = chan.recv(10240)
-            if o:
-                os.write(master_fd, o)
+            os.write(master_fd, o)
+            print("read from chan_fd done")
+    chan.shutdown(0)
 
     # while p.poll() is None:
     #     r, w, e = select.select([sys.stdin, master_fd], [], [])
@@ -255,7 +316,6 @@ try:
     #         o = os.read(master_fd, 10240)
     #         if o:
     #             os.write(sys.stdout.fileno(), o)
-
 
 except Exception as e:
     print("*** Caught exception: " + str(e.__class__) + ": " + str(e))
