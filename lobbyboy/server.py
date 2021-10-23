@@ -47,8 +47,7 @@ def set_winsize(fd, row, col, xpix=0, ypix=0):
     print("write done, col={}, row={}", col, row)
 
 
-host_key = paramiko.RSAKey(filename="test_rsa.key")
-# host_key = paramiko.DSSKey(filename='test_dss.key')
+host_key = paramiko.RSAKey(filename=".ssh/server.key")
 
 print("Read key: " + u(hexlify(host_key.get_fingerprint())))
 
@@ -56,12 +55,15 @@ print("Read key: " + u(hexlify(host_key.get_fingerprint())))
 class Server(paramiko.ServerInterface):
     # 'data' is the output of base64.b64encode(key)
     # (using the "user_rsa_key" files)
-    data = (
-        b"AAAAB3NzaC1yc2EAAAABIwAAAIEAyO4it3fHlmGZWJaGrfeHOVY7RWO3P9M7hp"
-        b"fAu7jJ2d7eothvfeuoRFtJwhUmZDluRdFyhFY/hFAh76PJKGAusIqIQKlkJxMC"
-        b"KDqIexkgHAfID/6mqvmnSJf0b5W8v5h2pI/stOSwTQ+pxVhwJ9ctYDhRSlF0iT"
-        b"UWT10hcuO4Ks8="
-    )
+    data = (b"AAAAB3NzaC1yc2EAAAADAQABAAABgQC7WY43dCG2GM3wUVRGpACawn1EWAXmnNmj"
+            b"oFbtoJCx6qCJW5TRgWCW+CtjqWluE5ripFaj0EQk0C3dJzfFdBlQXwLa1CzUEx48q"
+            b"qF/t3OtR21qyLrekWVLcS+FIEllixjhnDe3P+mY2nuywf78fZI9dvLotqOGtk+zjhU"
+            b"DX+3wgRbwAjrD4CPRqLVXactB6pdaBX5t1sUhGEjezE7rm0v4At5XxKHRRU9bSGIz"
+            b"J+sNmBByavlFXPwSMPLLVuyvFf2OujSUYsXKI6zADu5ypK1dCgsEUoEglQMCaew51NrASZGVsH56Rx1"
+            b"vFHssZwksK9WhM8f9CdfRHml4l7JSLea9XQNNovsJKUZ3aaH4DKA8lyhAYeY9/mRD"
+            b"iUdfMb6CzyqrXvcb0bDvDX0dzuseP3e6v+7QnrM39zxp5gJXUAIOuEl1Bhrjpa4Lq"
+            b"ROK2PLsmHRwnhk5JPlabIuvjVoSnWnFIrwudWgtwg+Zm5phlhjMfxuEglvJwLul9v"
+            b"aG4hGfGJ0=")
     good_pub_key = paramiko.RSAKey(data=decodebytes(data))
 
     def __init__(self):
@@ -79,6 +81,7 @@ class Server(paramiko.ServerInterface):
 
     def check_auth_publickey(self, username, key):
         print("Auth attempt with key: " + u(hexlify(key.get_fingerprint())))
+        print(key)
         if (username == "robey") and (key == self.good_pub_key):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
@@ -244,6 +247,7 @@ class SocketHandlerThread(threading.Thread):
                 ).encode()
             )
             chan.shutdown(0)
+            t.close()
 
         except Exception as e:
             print("*** Caught exception: " + str(e.__class__) + ": " + str(e))
