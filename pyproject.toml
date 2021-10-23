@@ -5,6 +5,9 @@ description = "Give me a server."
 authors = ["laixintao <laixintaoo@gmail.com>"]
 license = "GNU"
 
+[tool.poetry.scripts]
+runserver = 'lobbyboy.server:runserver'
+
 [tool.poetry.dependencies]
 python = "^3.9"
 paramiko = {extras = ["gssapi"], version = "^2.8.0"}
