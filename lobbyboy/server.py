@@ -15,29 +15,34 @@ import termios
 import struct
 import fcntl
 import logging
+import argparse
 from binascii import hexlify
+from pathlib import Path
 
 import paramiko
 from paramiko.py3compat import u, decodebytes
 from subprocess import Popen
 
+from .config import load_config
+
 
 DoGSSAPIKeyExchange = True
+# openssh ssh-keygen: The default length is 3072 bits (RSA) or 256 bits (ECDSA).
+DEFAULT_HOST_RSA_BITS=  3072
 
 
-def setup_logs(filename, level=logging.DEBUG):
+def setup_logs(level=logging.DEBUG):
     """send paramiko logs to a logfile,
     if they're not already going somewhere"""
     frm = "%(levelname)-.3s [%(asctime)s.%(msecs)03d] thr=%(thread)d"
     frm += " %(name)s: %(message)s"
-    handler = logging.FileHandler(filename)
+    handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(frm, "%Y%m%d-%H:%M:%S"))
     logging.basicConfig(level=level, handlers=[handler])
 
 
-setup_logs("lobbyboy.log")
+setup_logs()
 logger = logging.getLogger(__name__)
-logger.info("123")
 
 
 def set_winsize(fd, row, col, xpix=0, ypix=0):
@@ -47,23 +52,24 @@ def set_winsize(fd, row, col, xpix=0, ypix=0):
     print("write done, col={}, row={}", col, row)
 
 
-host_key = paramiko.RSAKey(filename=".ssh/server.key")
-
-print("Read key: " + u(hexlify(host_key.get_fingerprint())))
+# TODO generate all keys when start, if key not exist.
+# TODO fix server threading problems (no sleep!)
 
 
 class Server(paramiko.ServerInterface):
     # 'data' is the output of base64.b64encode(key)
     # (using the "user_rsa_key" files)
-    data = (b"AAAAB3NzaC1yc2EAAAADAQABAAABgQC7WY43dCG2GM3wUVRGpACawn1EWAXmnNmj"
-            b"oFbtoJCx6qCJW5TRgWCW+CtjqWluE5ripFaj0EQk0C3dJzfFdBlQXwLa1CzUEx48q"
-            b"qF/t3OtR21qyLrekWVLcS+FIEllixjhnDe3P+mY2nuywf78fZI9dvLotqOGtk+zjhU"
-            b"DX+3wgRbwAjrD4CPRqLVXactB6pdaBX5t1sUhGEjezE7rm0v4At5XxKHRRU9bSGIz"
-            b"J+sNmBByavlFXPwSMPLLVuyvFf2OujSUYsXKI6zADu5ypK1dCgsEUoEglQMCaew51NrASZGVsH56Rx1"
-            b"vFHssZwksK9WhM8f9CdfRHml4l7JSLea9XQNNovsJKUZ3aaH4DKA8lyhAYeY9/mRD"
-            b"iUdfMb6CzyqrXvcb0bDvDX0dzuseP3e6v+7QnrM39zxp5gJXUAIOuEl1Bhrjpa4Lq"
-            b"ROK2PLsmHRwnhk5JPlabIuvjVoSnWnFIrwudWgtwg+Zm5phlhjMfxuEglvJwLul9v"
-            b"aG4hGfGJ0=")
+    data = (
+        b"AAAAB3NzaC1yc2EAAAADAQABAAABgQC7WY43dCG2GM3wUVRGpACawn1EWAXmnNmj"
+        b"oFbtoJCx6qCJW5TRgWCW+CtjqWluE5ripFaj0EQk0C3dJzfFdBlQXwLa1CzUEx48q"
+        b"qF/t3OtR21qyLrekWVLcS+FIEllixjhnDe3P+mY2nuywf78fZI9dvLotqOGtk+zjhU"
+        b"DX+3wgRbwAjrD4CPRqLVXactB6pdaBX5t1sUhGEjezE7rm0v4At5XxKHRRU9bSGIz"
+        b"J+sNmBByavlFXPwSMPLLVuyvFf2OujSUYsXKI6zADu5ypK1dCgsEUoEglQMCaew51NrASZGVsH56Rx1"
+        b"vFHssZwksK9WhM8f9CdfRHml4l7JSLea9XQNNovsJKUZ3aaH4DKA8lyhAYeY9/mRD"
+        b"iUdfMb6CzyqrXvcb0bDvDX0dzuseP3e6v+7QnrM39zxp5gJXUAIOuEl1Bhrjpa4Lq"
+        b"ROK2PLsmHRwnhk5JPlabIuvjVoSnWnFIrwudWgtwg+Zm5phlhjMfxuEglvJwLul9v"
+        b"aG4hGfGJ0="
+    )
     good_pub_key = paramiko.RSAKey(data=decodebytes(data))
 
     def __init__(self):
@@ -155,13 +161,14 @@ class Server(paramiko.ServerInterface):
 
 
 class SocketHandlerThread(threading.Thread):
-    def __init__(self, socket_client, client_addr) -> None:
+    def __init__(self, socket_client, client_addr, config) -> None:
         """
         Args:
             socket_client, client_addr: created by socket.accept()
         """
         self.socket_client = socket_client
         self.client_addr = client_addr
+        self.config = config
         super().__init__()
 
     def run(self):
@@ -170,28 +177,37 @@ class SocketHandlerThread(threading.Thread):
                 self.socket_client, self.client_addr, threading.get_ident()
             )
         )
+        t = paramiko.Transport(self.socket_client, gss_kex=DoGSSAPIKeyExchange)
         try:
-            t = paramiko.Transport(self.socket_client, gss_kex=DoGSSAPIKeyExchange)
             t.set_gss_host(socket.getfqdn(""))
             try:
                 t.load_server_moduli()
             except:
-                print("(Failed to load moduli -- gex will be unsupported.)")
+                logger.error("(Failed to load moduli -- gex will be unsupported.)")
                 raise
+            host_key = paramiko.RSAKey(
+                filename=str(Path(self.config["data_dir"] / "ssh_host_rsa_key"))
+            )
+            logger.info(
+                "Read host key: " + hexlify(host_key.get_fingerprint()).decode()
+            )
             t.add_server_key(host_key)
             server = Server()
             try:
                 t.start_server(server=server)
             except paramiko.SSHException:
-                print("*** SSH negotiation failed.")
-                sys.exit(1)
+                logger.error("*** SSH negotiation failed.")
+                logger.error("close the transport now... {}".format(t))
+                t.close()
+                return
 
-            # wait for auth
             chan = t.accept(20)
             if chan is None:
-                print("*** No channel.")
-                sys.exit(1)
-            print("Authenticated!")
+                logger.error("Client never open a new channel, close transport now...")
+                t.close()
+                return
+
+            logger.info("Client authenticated! new channel openned: {}".format(chan))
 
             chan.send("\r\n\r\nWelcome to my dorky little BBS!\r\n\r\n")
             chan.send(
@@ -259,24 +275,50 @@ class SocketHandlerThread(threading.Thread):
             sys.exit(1)
 
 
-def runserver():
+def runserver(config):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("", 2200))
+        sock.bind((config['listen_ip'], config['listen_port']))
     except Exception as e:
-        print("*** Bind failed: " + str(e))
+        logger.error("*** Bind failed: " + str(e))
         traceback.print_exc()
         sys.exit(1)
 
     try:
         sock.listen(100)
     except Exception as e:
-        print("*** Listen/accept failed: " + str(e))
+        logger.error("*** Listen failed: " + str(e))
         traceback.print_exc()
         sys.exit(1)
     while 1:
         logger.info("Listening for connection ...")
-        client, addr = sock.accept()
+        try:
+            client, addr = sock.accept()
+        except Exception as e:
+            logger.error("*** Accept new socket failed: " + str(e))
+            continue
         logger.info("get a connection, from addr: {}".format(addr))
-        SocketHandlerThread(client, addr).start()
+        SocketHandlerThread(client, addr, config).start()
+
+
+def generate_host_keys(data_dir):
+    """
+    check host_key exist in data_dir, if not, generate
+    """
+    path = Path(data_dir) / "ssh_host_rsa_key"
+    if not path.exists():
+        logger.info("Host key do not exist, generate to {}...".format(str(path)))
+        rsa_key = paramiko.rsakey.RSAKey.generate(DEFAULT_HOST_RSA_BITS)
+        rsa_key.write_private_key_file(str(path))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c", "--config", dest="config_path", help="config file path", required=True
+    )
+    args = parser.parse_args()
+    config = load_config(args.config_path)
+    generate_host_keys(config["data_dir"])
+    runserver(config)
