@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import re
 import time
 import json
 import base64
@@ -95,7 +96,7 @@ class Server(paramiko.ServerInterface):
         key_type = key.get_name()
         logger.info("try to auth {} with key type {}...".format(username, key_type))
         reloaded_config = load_config(self.config["__config_path__"])
-        keys_string = reloaded_config["users"][username]["authorized_keys"]
+        keys_string = reloaded_config["user"][username]["authorized_keys"]
         key_cls = self._get_key_class(key_type)
         for line in keys_string.split("\n"):
             if not line.startswith(key_type):
@@ -176,6 +177,8 @@ class Server(paramiko.ServerInterface):
                 self.master_fd, self.slave_fd
             )
         )
+        self.window_width = width
+        self.window_height = height
         set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
         self.pty_event.set()
         return True
@@ -198,6 +201,15 @@ class Server(paramiko.ServerInterface):
         if self.proxy_subprocess:
             os.kill(self.proxy_subprocess, signal.SIGWINCH)
         return True
+
+
+def evict_active_session(transport, serverid):
+    with active_sesion_lock:
+        session_list = active_session[serverid]
+        active_session[serverid] = [
+            _t for _t in session_list if _t.getpeername() != transport.getpeername()
+        ]
+        return
 
 
 class SocketHandlerThread(threading.Thread):
@@ -261,17 +273,19 @@ class SocketHandlerThread(threading.Thread):
 
             master_fd = server.master_fd
             slave_fd = server.slave_fd
+            logger.info("transport peer name: {}".format(t.getpeername()))
             try:
-                p = self._create_proxy_process(chan, slave_fd)
+                p, serverid, provider = self._create_proxy_process(chan, slave_fd)
             except exceptions.UserCancelException:
                 logger.warn("user input Ctrl-C or Ctrl-D during the input.")
-                chan.send("Got EOF, closing session...\r\n")
+                chan.send("Got EOF, closing session...\r\n".encode())
                 chan.close()
+                evict_active_session(t, serverid)
                 t.close()
-                # TODO pop session if already in
                 return
 
             logger.info("open subprocess...")
+            chan.send((int(server.window_width) * "=" + "\r\n").encode())
             chan_fd = chan.fileno()
             while p.poll() is None:
                 r, w, e = select.select([master_fd, chan_fd], [], [], 0.1)
@@ -282,27 +296,124 @@ class SocketHandlerThread(threading.Thread):
                     o = chan.recv(10240)
                     os.write(master_fd, o)
 
-            chan.send(
-                b"SSH session to remote server is closed. I will try to destroy the server...\r\n"
-            )
+            chan.send("Lobbyboy: SSH to remote server {} closed.\r\n".format(serverid).encode())
+            evict_active_session(t, serverid)
+            self.destroy_server_if_needed(serverid, chan)
             chan.shutdown(0)
-            # TODO pop session if already in
             t.close()
 
         except Exception as e:
             logger.error("*** Caught exception: " + str(e.__class__) + ": " + str(e))
             traceback.print_exc()
             try:
+                evict_active_session(t, serverid)
                 t.close()
             except:
                 pass
+
+    def load_server_info(self, serverid):
+        servers = self._load_availiable_server()
+        for server in servers:
+            if server["server_id"] == serverid:
+                return server
+        raise Exception("serverid={} not found!".format(serverid))
+
+    def _parse_time_config(self, timestr):
+        """
+        Args:
+            timestr: str, 10s, 10m, 10h, 10d
+        Returns:
+            seconds
+        """
+        matched = re.match(r"(\d+)s", timestr)
+        if matched:
+            return int(matched.group(1))
+
+        matched = re.match(r"(\d+)m", timestr)
+        if matched:
+            return int(matched.group(1)) * 60
+
+        matched = re.match(r"(\d+)h", timestr)
+        if matched:
+            return int(matched.group(1)) * 60 * 60
+
+        matched = re.match(r"(\d+)d", timestr)
+        if matched:
+            return int(matched.group(1)) * 60 * 60 * 24
+
+        raise Exception("Can not parse {}".format(timestr))
+
+    def _human_time(self, seconds: int):
+        return "{}s".format(seconds)
+
+    def delete_from_server_db(self, serverid):
+        with available_server_db_lock:
+            servers = self._load_availiable_server()
+            new_servers = [s for s in servers if s['server_id'] != serverid]
+            json.dump(
+                new_servers,
+                open(Path(self.config["data_dir"]) / "available_servers.json", "w+"),
+            )
+
+    def destroy_server_if_needed(self, serverid, channel):
+        server = self.load_server_info(serverid)
+        provider_name = server["provider"]
+        pconfig = self.config["provider"][provider_name]
+
+        born_time = server["created_timestamp"]
+        lived_time = time.time() - born_time
+        min_life_to_live_seconds = self._parse_time_config(pconfig["min_life_to_live"])
+        if min_life_to_live_seconds == 0:
+            channel.send("I will destroy {}({}) now! (min_life_to_live=0)\r\n".format(serverid, server['server_host']).encode())
+            provider = self.providers[provider_name]
+            provider.destroy_server(serverid, server['server_host'], channel)
+            self.delete_from_server_db(serverid)
+            channel.send("Server has been destroyed.\r\n".encode())
+            return 
+        bill_time_unit = self._parse_time_config(pconfig["bill_time_unit"])
+
+        FIVE_MINUTES = 5 * 60
+        destroy_spare_seconds = max(
+            [self._parse_time_config(self.config["destroy_interval"]), FIVE_MINUTES]
+        )
+        bill_unit_left_time = (
+            bill_time_unit - destroy_spare_seconds - (lived_time % bill_time_unit)
+        )
+
+        min_live_left_seconds = min_life_to_live_seconds - lived_time
+        if min_live_left_seconds > 0:
+            channel.send(
+                "I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
+                    self._human_time(min_life_to_live_seconds),
+                    pconfig["min_life_to_live"],
+                )
+            )
+            return
+        if bill_unit_left_time > 0:
+            channel.send(
+                "I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
+                    self._human_time(bill_unit_left_time),
+                    pconfig["bill_time_unit"],
+                )
+            )
+            return
+        channel.send("I will destroy {}({}) now!\r\n".format(serverid, server['server_host']).encode())
+        provider = self.providers[provider_name]
+        provider.destroy_server(serverid, server['server_host'], channel)
+        self.delete_from_server_db(serverid)
+        channel.send("Server has been destroyed.".encode())
+
 
     def _create_proxy_process(self, channel, slave_fd):
         # if has available servers, prompt login or create
         # if no,  create, and redirect
         available_servers = self._load_availiable_server()
         if available_servers:
-            channel.send("There are {} available servers:\r\n".format(len(available_servers)).encode())
+            channel.send(
+                "There are {} available servers:\r\n".format(
+                    len(available_servers)
+                ).encode()
+            )
             channel.send("{:>3} - Create a new server...\r\n".format(0))
             for index, server in enumerate(available_servers):
                 channel.send(
@@ -313,26 +424,34 @@ class SocketHandlerThread(threading.Thread):
                         len(active_session.get(server["server_id"], [])),
                     )
                 )
-                channel.send("Please input your choice (number): ".encode())
+            channel.send("Please input your choice (number): ".encode())
             user_input = int(self.read_user_input_line(channel))
             if user_input == 0:
                 logger.info("userinput=0, wants to create a new server...")
                 serverid, serverhost, provider = self._create_new_server(channel)
             else:
                 user_input -= 1
-                logger.info("userinput={}, wants to ssh to an exist server...".format(user_input))
+                logger.info(
+                    "userinput={}, wants to ssh to an exist server...".format(
+                        user_input
+                    )
+                )
                 choosed_server = available_servers[user_input]
-                serverid = choosed_server['server_id']
-                serverhost = choosed_server['server_host']
-                provider_name = choosed_server['provider']
+                serverid = choosed_server["server_id"]
+                serverhost = choosed_server["server_host"]
+                provider_name = choosed_server["provider"]
                 provider = self.providers[provider_name]
         else:
             channel.send("There is no available servers, provision a new server...\r\n")
             serverid, serverhost, provider = self._create_new_server(channel)
         ssh_command = provider.ssh_server_command(serverid, serverhost)
-        logger.info( "ssh to server {} {}: {}".format(
+        logger.info(
+            "ssh to server {} {}: {}".format(
                 serverid, serverhost, " ".join(ssh_command)
             )
+        )
+        channel.send(
+            "Redirect you to {} ({})...\r\n".format(serverid, serverhost).encode()
         )
         proxy_subprocess = Popen(
             ssh_command,
@@ -343,10 +462,10 @@ class SocketHandlerThread(threading.Thread):
             universal_newlines=True,
         )
         with active_sesion_lock:
-            active_session.setdefault(serverid, []).append(proxy_subprocess)
-        return proxy_subprocess
+            active_session.setdefault(serverid, []).append(channel.get_transport())
+        return proxy_subprocess, serverid, provider
 
-    def choose_providers(self, chan):
+    def choose_providers(self, channel):
         if len(self.providers) < 1:
             raise Exception(
                 "Do not have available providers to provision a new server!"
@@ -355,15 +474,15 @@ class SocketHandlerThread(threading.Thread):
             return self.providers.values()[0]
         else:
             pnames = list(self.providers.keys())
-            chan.send("Available VPS providers:\r\n")
+            channel.send("Available VPS providers:\r\n")
             for index, name in enumerate(pnames):
-                chan.send("{:>3} - {}\r\n".format(index, name))
-            chan.send("Please choose a provider to create a new server: ")
-            user_input = self.read_user_input_line(chan)
+                channel.send("{:>3} - {}\r\n".format(index, name))
+            channel.send("Please choose a provider to create a new server: ")
+            user_input = self.read_user_input_line(channel)
             choosed_provider_name = pnames[int(user_input)]
             return self.providers[choosed_provider_name]
 
-    def _create_new_server(self,  chan):
+    def _create_new_server(self, chan):
         provider = self.choose_providers(chan)
         server_id, server_ip = provider.new_server(chan)
         with available_server_db_lock:
@@ -393,7 +512,7 @@ class SocketHandlerThread(threading.Thread):
             )
         except Exception as e:
             logger.error("Error when reading available_servers.json, {}".format(str(e)))
-            return None
+            return []
         logger.debug(
             "open server_json, find {} available_servers: {}".format(
                 len(server_json), server_json
@@ -402,15 +521,16 @@ class SocketHandlerThread(threading.Thread):
         return server_json
 
     def read_user_input_line(self, chan):
+        # TODO do not support del
         logger.debug("reading from channel... {}".format(chan))
         chars = []
         while 1:
             content = chan.recv(1)
             logger.debug("channel recv: {}".format(content))
-            if content == b'\r':
-                chan.send(b'\r\n')
+            if content == b"\r":
+                chan.send(b"\r\n")
                 break
-            if content == b'\x04' or content == b'\x03':
+            if content == b"\x04" or content == b"\x03":
                 raise exceptions.UserCancelException()
             chan.send(content)
             chars.append(content)
@@ -465,7 +585,11 @@ def load_providers(config):
         module = importlib.import_module(module_path)
         provider_work_path = Path(config["data_dir"]) / name
         if not provider_work_path.exists():
-            logger.info("{}'s workpath {} don't exist, creating...".format(name, str(provider_work_path)))
+            logger.info(
+                "{}'s workpath {} don't exist, creating...".format(
+                    name, str(provider_work_path)
+                )
+            )
             os.mkdir(str(provider_work_path))
         provider_obj = getattr(module, classname)(
             provider_name=name,

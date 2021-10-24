@@ -21,7 +21,7 @@ class BaseProvider:
         """
         pass
 
-    def destroy_server(self):
+    def destroy_server(self, server_id, server_ip, channel):
         pass
 
     def ssh_server_command(self, server_id, server_ip):
@@ -44,7 +44,9 @@ class BaseProvider:
             while not stop_event.is_set():
                 current = time.time()
                 chan.send(
-                    "\rCreating new server... ({:.1f})s".format(current - start).encode()
+                    "\rCreating new server... ({:.1f})s".format(
+                        current - start
+                    ).encode()
                 )
             chan.send(b"\r\n")
 
