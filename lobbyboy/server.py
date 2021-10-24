@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import re
 import time
 import json
 import base64
@@ -19,15 +18,16 @@ import struct
 import fcntl
 import logging
 import argparse
+import importlib
 from binascii import hexlify
 from pathlib import Path
 
 import paramiko
-from paramiko.py3compat import decodebytes
 from paramiko import AUTH_SUCCESSFUL, AUTH_FAILED
 from subprocess import Popen
 
 from .config import load_config
+from . import exceptions
 
 
 DoGSSAPIKeyExchange = True
@@ -35,6 +35,8 @@ DoGSSAPIKeyExchange = True
 DEFAULT_HOST_RSA_BITS = 3072
 # {server_id: [Transport]}
 active_session = {}
+available_server_db_lock = threading.Lock()
+active_sesion_lock = threading.Lock()
 
 
 def setup_logs(level=logging.DEBUG):
@@ -61,7 +63,7 @@ def set_winsize(fd, row, col, xpix=0, ypix=0):
 
 
 class Server(paramiko.ServerInterface):
-    def __init__(self, config):
+    def __init__(self, config, providers):
         self.pty_event = threading.Event()
         self.shell_event = threading.Event()
         self.config = config
@@ -69,6 +71,8 @@ class Server(paramiko.ServerInterface):
         self.proxy_subprocess = None
         self.client_exec = None
         self.client_exec_provider = None
+        self.providers = providers
+        self.master_id = self.slave_fd = None
 
     def check_channel_request(self, kind, chanid):
         if kind == "session":
@@ -155,61 +159,8 @@ class Server(paramiko.ServerInterface):
         if not self.pty_event.is_set():
             logger.error("Client never ask a tty, can not allocate shell...")
             raise Exception("No TTY")
-
-        # if has available servers, prompt login or create
-        # if no,  create, and redirect
-        available_servers = self._load_availiable_server()
-        if available_servers:
-            channel.send("There are {} available servers:\r\n")
-            channel.send("{>3 - Create a new server...}\r\n".format(0))
-            for index, server in enumerate(available_servers):
-                channel.send(
-                    "{>3} - Enter {} {} ({} active sessions)\r\n".format(
-                        index + 1,
-                        server["id"],
-                        server["host"],
-                        len(active_session[server["id"]]),
-                    )
-                )
-        else:
-            channel.send("There is no available servers, provision a new server...\r\n")
-            # newserver = self._create_new_server()
-            # ssh_command = newserver.get_ssh_command()
-            ssh_command = [
-                "ssh",
-                "-i",
-                "/Users/xintao.lai/Programs/tlpi-code/.vagrant/machines/default/virtualbox/private_key",
-                "-p",
-                "2222",
-                "vagrant@127.0.0.1",
-                "-t",
-            ]
-            self.proxy_subprocess = Popen(
-                ssh_command,
-                preexec_fn=os.setsid,
-                stdin=self.slave_fd,
-                stdout=self.slave_fd,
-                stderr=self.slave_fd,
-                universal_newlines=True,
-            )
-            self.shell_event.set()
-
+        self.shell_event.set()
         return True
-
-    def _load_availiable_server(self):
-        try:
-            server_json = json.load(
-                open(Path(self.config["data_dir"]) / "available_servers.json", "r+")
-            )
-        except Exception as e:
-            logger.error("Error when reading available_servers.json, {}".format(str(e)))
-            return None
-        logger.debug(
-            "open server_json, find {} available_servers: {}".format(
-                len(server_json), server_json
-            )
-        )
-        return server_json
 
     def check_channel_pty_request(
         self, channel, term, width, height, pixelwidth, pixelheight, modes
@@ -282,7 +233,7 @@ class SocketHandlerThread(threading.Thread):
                 "Read host key: " + hexlify(host_key.get_fingerprint()).decode()
             )
             t.add_server_key(host_key)
-            server = Server(self.config)
+            server = Server(self.config, self.providers)
             try:
                 t.start_server(server=server)
             except paramiko.SSHException:
@@ -297,8 +248,7 @@ class SocketHandlerThread(threading.Thread):
                 t.close()
                 return
 
-            logger.info("going to wait until shell_event.event() is set...")
-            server.shell_event.wait(10)
+            server.shell_event.wait()
             if not server.shell_event.is_set():
                 logger.warn(
                     "Client never asked for a shell, I am going to end this ssh session now..."
@@ -309,8 +259,17 @@ class SocketHandlerThread(threading.Thread):
                 t.close()
                 return
 
-            master_fd, slave_fd = server.master_fd, server.slave_fd
-            p = server.proxy_subprocess
+            master_fd = server.master_fd
+            slave_fd = server.slave_fd
+            try:
+                p = self._create_proxy_process(chan, slave_fd)
+            except exceptions.UserCancelException:
+                logger.warn("user input Ctrl-C or Ctrl-D during the input.")
+                chan.send("Got EOF, closing session...\r\n")
+                chan.close()
+                t.close()
+                # TODO pop session if already in
+                return
 
             logger.info("open subprocess...")
             chan_fd = chan.fileno()
@@ -327,6 +286,7 @@ class SocketHandlerThread(threading.Thread):
                 b"SSH session to remote server is closed. I will try to destroy the server...\r\n"
             )
             chan.shutdown(0)
+            # TODO pop session if already in
             t.close()
 
         except Exception as e:
@@ -336,7 +296,125 @@ class SocketHandlerThread(threading.Thread):
                 t.close()
             except:
                 pass
-            sys.exit(1)
+
+    def _create_proxy_process(self, channel, slave_fd):
+        # if has available servers, prompt login or create
+        # if no,  create, and redirect
+        available_servers = self._load_availiable_server()
+        if available_servers:
+            channel.send("There are {} available servers:\r\n".format(len(available_servers)).encode())
+            channel.send("{:>3} - Create a new server...\r\n".format(0))
+            for index, server in enumerate(available_servers):
+                channel.send(
+                    "{:>3} - Enter {} {} ({} active sessions)\r\n".format(
+                        index + 1,
+                        server["server_id"],
+                        server["server_host"],
+                        len(active_session.get(server["server_id"], [])),
+                    )
+                )
+                channel.send("Please input your choice (number): ".encode())
+            user_input = int(self.read_user_input_line(channel))
+            if user_input == 0:
+                logger.info("userinput=0, wants to create a new server...")
+                serverid, serverhost, provider = self._create_new_server(channel)
+            else:
+                user_input -= 1
+                logger.info("userinput={}, wants to ssh to an exist server...".format(user_input))
+                choosed_server = available_servers[user_input]
+                serverid = choosed_server['server_id']
+                serverhost = choosed_server['server_host']
+                provider_name = choosed_server['provider']
+                provider = self.providers[provider_name]
+        else:
+            channel.send("There is no available servers, provision a new server...\r\n")
+            serverid, serverhost, provider = self._create_new_server(channel)
+        ssh_command = provider.ssh_server_command(serverid, serverhost)
+        logger.info( "ssh to server {} {}: {}".format(
+                serverid, serverhost, " ".join(ssh_command)
+            )
+        )
+        proxy_subprocess = Popen(
+            ssh_command,
+            preexec_fn=os.setsid,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            universal_newlines=True,
+        )
+        with active_sesion_lock:
+            active_session.setdefault(serverid, []).append(proxy_subprocess)
+        return proxy_subprocess
+
+    def choose_providers(self, chan):
+        if len(self.providers) < 1:
+            raise Exception(
+                "Do not have available providers to provision a new server!"
+            )
+        elif len(self.providers) == 1:
+            return self.providers.values()[0]
+        else:
+            pnames = list(self.providers.keys())
+            chan.send("Available VPS providers:\r\n")
+            for index, name in enumerate(pnames):
+                chan.send("{:>3} - {}\r\n".format(index, name))
+            chan.send("Please choose a provider to create a new server: ")
+            user_input = self.read_user_input_line(chan)
+            choosed_provider_name = pnames[int(user_input)]
+            return self.providers[choosed_provider_name]
+
+    def _create_new_server(self,  chan):
+        provider = self.choose_providers(chan)
+        server_id, server_ip = provider.new_server(chan)
+        with available_server_db_lock:
+            server_json = self._load_availiable_server()
+            if not server_json:
+                server_json = []
+
+            server_json.append(
+                {
+                    "server_id": server_id,
+                    "server_host": server_ip,
+                    "provider": provider.provider_name,
+                    "created_timestamp": time.time(),
+                }
+            )
+            json.dump(
+                server_json,
+                open(Path(self.config["data_dir"]) / "available_servers.json", "w+"),
+            )
+
+        return server_id, server_ip, provider
+
+    def _load_availiable_server(self):
+        try:
+            server_json = json.load(
+                open(Path(self.config["data_dir"]) / "available_servers.json", "r+")
+            )
+        except Exception as e:
+            logger.error("Error when reading available_servers.json, {}".format(str(e)))
+            return None
+        logger.debug(
+            "open server_json, find {} available_servers: {}".format(
+                len(server_json), server_json
+            )
+        )
+        return server_json
+
+    def read_user_input_line(self, chan):
+        logger.debug("reading from channel... {}".format(chan))
+        chars = []
+        while 1:
+            content = chan.recv(1)
+            logger.debug("channel recv: {}".format(content))
+            if content == b'\r':
+                chan.send(b'\r\n')
+                break
+            if content == b'\x04' or content == b'\x03':
+                raise exceptions.UserCancelException()
+            chan.send(content)
+            chars.append(content)
+        return b"".join(chars).decode()
 
 
 def runserver(config, providers):
@@ -374,12 +452,32 @@ def generate_host_keys(data_dir):
     path = Path(data_dir) / "ssh_host_rsa_key"
     if not path.exists():
         logger.info("Host key do not exist, generate to {}...".format(str(path)))
-        rsa_key = paramiko.rsakey.RSAKey.generate(DEFAULT_HOST_RSA_BITS)
+        rsa_key = paramiko.RSAKey.generate(DEFAULT_HOST_RSA_BITS)
         rsa_key.write_private_key_file(str(path))
 
 
 def load_providers(config):
-    return []
+    _providers = {}
+    for name, pconfig in config["provider"].items():
+        path = pconfig["loadmodule"]
+        module_path, classname = path.split("::")
+        logger.debug("loading path: {}, classname: {}".format(module_path, classname))
+        module = importlib.import_module(module_path)
+        provider_work_path = Path(config["data_dir"]) / name
+        if not provider_work_path.exists():
+            logger.info("{}'s workpath {} don't exist, creating...".format(name, str(provider_work_path)))
+            os.mkdir(str(provider_work_path))
+        provider_obj = getattr(module, classname)(
+            provider_name=name,
+            config=config,
+            provider_config=pconfig,
+            data_path=str(provider_work_path),
+        )
+        _providers[name] = provider_obj
+
+    logger.info("{} providers loaded: {}".format(len(_providers), _providers.keys()))
+
+    return _providers
 
 
 def main():

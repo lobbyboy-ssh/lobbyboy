@@ -1,16 +1,52 @@
-class BaseProvider:
-    def __init__(self, configs, ssh_command):
-        self.configs = configs
-        self.ssh_command = ssh_command
+from pathlib import Path
+import time
+import threading
 
-    def new_server(self):
+
+class BaseProvider:
+    def __init__(self, provider_name, config, provider_config, data_path):
+        self.config = config
+        self.provider_name = provider_name
+        self.provider_config = provider_config
+        self.data_path = Path(data_path)
+
+    def new_server(self, chan):
+        """
+        Args:
+            chan: channel
+
+        Returns:
+            created_server_id: unique id from provision
+            created_server_host: server's ip or domain address
+        """
         pass
 
     def destroy_server(self):
         pass
 
-    def ssh_server_command(self, server_id):
+    def ssh_server_command(self, server_id, server_ip):
+        """
+        Args:
+           server_id: the server ssh to, which is returned by you from ``new_server``
+           server_ip: ip or domain name.
+        Returns:
+            list: a command in list format, for later to run exec.
+        """
         pass
 
     def get_bill(self):
         pass
+
+    def send_timepass(self, chan, stop_event):
+        start = time.time()
+
+        def _print_time_elaspe():
+            while not stop_event.is_set():
+                current = time.time()
+                chan.send(
+                    "\rCreating new server... ({:.1f})s".format(current - start).encode()
+                )
+            chan.send(b"\r\n")
+
+        t = threading.Thread(target=_print_time_elaspe)
+        t.start()

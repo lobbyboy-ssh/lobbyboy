@@ -1,6 +1,7 @@
 data_dir = "/Users/xintao.lai/Programs/lobbyboy/dev_datadir"
 listen_port = 12200
 listen_ip = "0.0.0.0"
+destroy_interval = "1m"
 
 [users]
 
@@ -8,10 +9,51 @@ listen_ip = "0.0.0.0"
 # client pub keys for ssh to lobbyboy server.
 # one key per line
 authorized_keys = """
-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7WY43dCG2GM3wUVRGpACawn1EWAXmnNmjoFbtoJCx6qCJW5TRgWCW+CtjqWluE5ripFaj0EQk0C3dJzfFdBlQXwLa1CzUEx48qqF/t3OtR21qyLrekWVLcS+FIEllixjhnDe3P+mY2nuywf78fZI9dvLotqOGtk+zjhUDX+3wgRbwAjrD4CPRqLVXactB6pdaBX5t1sUhGEjezE7rm0v4At5XxKHRRU9bSGIzJ+sNmBByavlFXPwSMPLLVuyvFf2OujSUYsXKI6zADu5ypK1dCgsEUoEglQMCaew51NrASZGVsH56Rx1vFHssZwksK9WhM8f9CdfRHml4l7JSLea9XQNNovsJKUZ3aaH4DKA8lyhAYeY9/mRDiUdfMb6CzyqrXvcb0bDvDX0dzuseP3e6v+7QnrM39zxp5gJXUAIOuEl1Bhrjpa4LqROK2PLsmHRwnhk5JPlabIuvjVoSnWnFIrwudWgtwg+Zm5phlhjMfxuEglvJwLul9vaG4hGfGJ0="""
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7WY43dCG2GM3wUVRGpACawn1EWAXmnNmjoFbtoJCx6qCJW5TRgWCW+CtjqWluE5ripFaj0EQk0C3dJzfFdBlQXwLa1CzUEx48qqF/t3OtR21qyLrekWVLcS+FIEllixjhnDe3P+mY2nuywf78fZI9dvLotqOGtk+zjhUDX+3wgRbwAjrD4CPRqLVXactB6pdaBX5t1sUhGEjezE7rm0v4At5XxKHRRU9bSGIzJ+sNmBByavlFXPwSMPLLVuyvFf2OujSUYsXKI6zADu5ypK1dCgsEUoEglQMCaew51NrASZGVsH56Rx1vFHssZwksK9WhM8f9CdfRHml4l7JSLea9XQNNovsJKUZ3aaH4DKA8lyhAYeY9/mRDiUdfMb6CzyqrXvcb0bDvDX0dzuseP3e6v+7QnrM39zxp5gJXUAIOuEl1Bhrjpa4LqROK2PLsmHRwnhk5JPlabIuvjVoSnWnFIrwudWgtwg+Zm5phlhjMfxuEglvJwLul9vaG4hGfGJ0=
+"""
 password = false
 
 [providers]
 
 [provider.digitalocean]
-loadmodule = "lobbyboy.contrib.provider.digitalocean"
+loadmodule = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
+# lobbyboy will destroy the server for you.
+# when:
+# 1. there is no active session(if you ssh to that server bot throughing
+#    lobbyboy, then it doesn't count)
+# 2. server exist at least ``min_life_to_live`` time
+# 3. current time + ``destroy_interval`` + 5m(in case of network latency) will
+#    enter next bill unit
+# For e.g.
+# You pay DigitalOcean's VPS(they call droplet) based on hourly usage, say if
+# you use a VPS for 30 minutes, and logout, lobbyboy will destroy this server
+# after 24mins, in case you want to use it again, and you don't pay extra money
+# for that
+#
+# if set ``min_life_to_live`` to "0s", the server will be destroy immediately
+# after everyone logout.
+#
+# supprtted format:
+# - 50s for 50 seconds
+# - 55m for 55 minutes
+# - 1h for one hour
+# - 2d for 2 days
+min_life_to_live = "1h"
+bill_time_unit = "1h"
+
+
+[provider.vagrant]
+loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
+min_life_to_live = "0s"
+bill_time_unit = "0s"
+vagrantfile="""
+Vagrant.configure("2") do |config|
+  config.vm.define "{boxname}"
+  config.vm.box = "bento/ubuntu-20.04"
+    config.vm.provider "virtualbox" do |v|
+    v.name = "{boxname}"
+    v.memory = 1024
+    v.cpus = 12
+    end
+end
+"""
