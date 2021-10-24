@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import time
+import base64
 import os
 import socket
 import sys
@@ -20,7 +21,8 @@ from binascii import hexlify
 from pathlib import Path
 
 import paramiko
-from paramiko.py3compat import u, decodebytes
+from paramiko.py3compat import decodebytes
+from paramiko import (AUTH_SUCCESSFUL, AUTH_FAILED)
 from subprocess import Popen
 
 from .config import load_config
@@ -28,7 +30,7 @@ from .config import load_config
 
 DoGSSAPIKeyExchange = True
 # openssh ssh-keygen: The default length is 3072 bits (RSA) or 256 bits (ECDSA).
-DEFAULT_HOST_RSA_BITS=  3072
+DEFAULT_HOST_RSA_BITS = 3072
 
 
 def setup_logs(level=logging.DEBUG):
@@ -46,10 +48,8 @@ logger = logging.getLogger(__name__)
 
 
 def set_winsize(fd, row, col, xpix=0, ypix=0):
-    print("start write using fcntl...")
     winsize = struct.pack("HHHH", row, col, xpix, ypix)
     fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-    print("write done, col={}, row={}", col, row)
 
 
 # TODO generate all keys when start, if key not exist.
@@ -57,23 +57,10 @@ def set_winsize(fd, row, col, xpix=0, ypix=0):
 
 
 class Server(paramiko.ServerInterface):
-    # 'data' is the output of base64.b64encode(key)
-    # (using the "user_rsa_key" files)
-    data = (
-        b"AAAAB3NzaC1yc2EAAAADAQABAAABgQC7WY43dCG2GM3wUVRGpACawn1EWAXmnNmj"
-        b"oFbtoJCx6qCJW5TRgWCW+CtjqWluE5ripFaj0EQk0C3dJzfFdBlQXwLa1CzUEx48q"
-        b"qF/t3OtR21qyLrekWVLcS+FIEllixjhnDe3P+mY2nuywf78fZI9dvLotqOGtk+zjhU"
-        b"DX+3wgRbwAjrD4CPRqLVXactB6pdaBX5t1sUhGEjezE7rm0v4At5XxKHRRU9bSGIz"
-        b"J+sNmBByavlFXPwSMPLLVuyvFf2OujSUYsXKI6zADu5ypK1dCgsEUoEglQMCaew51NrASZGVsH56Rx1"
-        b"vFHssZwksK9WhM8f9CdfRHml4l7JSLea9XQNNovsJKUZ3aaH4DKA8lyhAYeY9/mRD"
-        b"iUdfMb6CzyqrXvcb0bDvDX0dzuseP3e6v+7QnrM39zxp5gJXUAIOuEl1Bhrjpa4Lq"
-        b"ROK2PLsmHRwnhk5JPlabIuvjVoSnWnFIrwudWgtwg+Zm5phlhjMfxuEglvJwLul9v"
-        b"aG4hGfGJ0="
-    )
-    good_pub_key = paramiko.RSAKey(data=decodebytes(data))
-
-    def __init__(self):
-        self.event = threading.Event()
+    def __init__(self, config):
+        self.tty_event = threading.Event()
+        self.shell_event = threading.Event()
+        self.config=config
 
     def check_channel_request(self, kind, chanid):
         if kind == "session":
@@ -81,19 +68,37 @@ class Server(paramiko.ServerInterface):
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
+        # TODO load config file every time.
         if (username == "robey") and (password == "foo"):
-            return paramiko.AUTH_SUCCESSFUL
-        return paramiko.AUTH_FAILED
+            return AUTH_SUCCESSFUL
+        return AUTH_FAILED
+
+    def _get_key_class(self, key_type):
+        if key_type == "ssh-rsa":
+            return paramiko.RSAKey
+        # TODO other types
+        raise Exception("Unknown key type")
 
     def check_auth_publickey(self, username, key):
-        print("Auth attempt with key: " + u(hexlify(key.get_fingerprint())))
-        print(key)
-        if (username == "robey") and (key == self.good_pub_key):
-            return paramiko.AUTH_SUCCESSFUL
-        return paramiko.AUTH_FAILED
+        key_type = key.get_name()
+        logger.info("try to auth {} with key type {}...".format(username, key_type))
+        reloaded_config = load_config(self.config["__config_path__"])
+        keys_string = reloaded_config["users"][username]["authorized_keys"]
+        key_cls = self._get_key_class(key_type)
+        for line in keys_string.split("\n"):
+            if not line.startswith(key_type):
+                continue
+            _, _key_pub = line.split(" ", 2)
+            accept_key = key_cls(data=base64.b64decode(_key_pub))
+            logger.info("try to auth {} with key {}".format(username, hexlify(accept_key.get_fingerprint()).decode()))
+            if key == accept_key:
+                logger.info("accept auth {} with key {}".format(username, hexlify(accept_key.get_fingerprint()).decode()))
+                return AUTH_SUCCESSFUL
+        logger.info("Can not auth {} with any key.".format(username))
+        return AUTH_FAILED
 
     def check_auth_gssapi_with_mic(
-        self, username, gss_authenticated=paramiko.AUTH_FAILED, cc_file=None
+        self, username, gss_authenticated=AUTH_FAILED, cc_file=None
     ):
         """
         .. note::
@@ -111,15 +116,16 @@ class Server(paramiko.ServerInterface):
         """
         if gss_authenticated == paramiko.AUTH_SUCCESSFUL:
             return paramiko.AUTH_SUCCESSFUL
-        return paramiko.AUTH_FAILED
+        return AUTH_FAILED
 
     def check_auth_gssapi_keyex(
-        self, username, gss_authenticated=paramiko.AUTH_FAILED, cc_file=None
+        self, username, gss_authenticated=AUTH_FAILED, cc_file=None
     ):
+        # TODO
         if gss_authenticated == paramiko.AUTH_SUCCESSFUL:
-            print("gss auth success")
+            logger.info("gss auth success")
             return paramiko.AUTH_SUCCESSFUL
-        return paramiko.AUTH_FAILED
+        return AUTH_FAILED
 
     def enable_auth_gssapi(self):
         return True
@@ -128,15 +134,22 @@ class Server(paramiko.ServerInterface):
         return "gssapi-keyex,gssapi-with-mic,password,publickey"
 
     def check_channel_shell_request(self, channel):
-        print("request shell...")
-        self.event.set()
+        logger.info("client request shell...")
+        self.shell_event.wait(10)
+        if not self.shell_event.is_set():
+            logger.error("Client never ask a tty, can not allocate shell...")
+            raise Exception("No TTY")
+        logger.debug("user's pty ready, master_fd={}, slave_fd={}".format(self.master_fd, self.slave_fd))
+        # if has available servers, prompt login or create
+        # if no,  create, and redirect
+
         return True
 
     def check_channel_pty_request(
         self, channel, term, width, height, pixelwidth, pixelheight, modes
     ):
-        print(
-            "request pty...",
+        logger.info(
+            "Client request pty...",
             channel,
             term,
             width,
@@ -147,21 +160,23 @@ class Server(paramiko.ServerInterface):
         )
         self.master_fd, self.slave_fd = pty.openpty()
         set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
+        self.tty_event.set()
         return True
 
     def check_channel_window_change_request(
         self, channel, width, height, pixelwidth, pixelheight
     ):
-        print("window change pty...", channel, width, height, pixelwidth, pixelwidth)
+        logger.debug(
+            "window change pty...", channel, width, height, pixelwidth, pixelwidth
+        )
         set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
-        import os
 
         os.kill(self.pid, signal.SIGWINCH)
         return True
 
 
 class SocketHandlerThread(threading.Thread):
-    def __init__(self, socket_client, client_addr, config) -> None:
+    def __init__(self, socket_client, client_addr, config, providers) -> None:
         """
         Args:
             socket_client, client_addr: created by socket.accept()
@@ -169,6 +184,7 @@ class SocketHandlerThread(threading.Thread):
         self.socket_client = socket_client
         self.client_addr = client_addr
         self.config = config
+        self.providers = providers
         super().__init__()
 
     def run(self):
@@ -186,13 +202,13 @@ class SocketHandlerThread(threading.Thread):
                 logger.error("(Failed to load moduli -- gex will be unsupported.)")
                 raise
             host_key = paramiko.RSAKey(
-                filename=str(Path(self.config["data_dir"] / "ssh_host_rsa_key"))
+                filename=str(Path(self.config["data_dir"]) / "ssh_host_rsa_key")
             )
             logger.info(
                 "Read host key: " + hexlify(host_key.get_fingerprint()).decode()
             )
             t.add_server_key(host_key)
-            server = Server()
+            server = Server(self.config)
             try:
                 t.start_server(server=server)
             except paramiko.SSHException:
@@ -207,20 +223,16 @@ class SocketHandlerThread(threading.Thread):
                 t.close()
                 return
 
-            logger.info("Client authenticated! new channel openned: {}".format(chan))
-
-            chan.send("\r\n\r\nWelcome to my dorky little BBS!\r\n\r\n")
-            chan.send(
-                "We are on fire all the time!  Hooray!  Candy corn for everyone!\r\n"
-            )
-            chan.send("Happy birthday to Robot Dave!\r\n\r\n")
-
-            time.sleep(0.5)
-            chan.send("\rhello count 3...")
-            time.sleep(0.5)
-            chan.send("\rhello count 2...")
-            time.sleep(0.5)
-            chan.send("\rhello count 1...")
+            server.shell_event.wait(10)
+            if not server.shell_event.is_set():
+                logger.warn(
+                    "Client never asked for a shell, I am going to end this ssh session now..."
+                )
+                chan.send(
+                    b"*** Client never asked for a shell. Server will end session...\n"
+                )
+                t.close()
+                return
 
             command = [
                 "ssh",
@@ -266,7 +278,7 @@ class SocketHandlerThread(threading.Thread):
             t.close()
 
         except Exception as e:
-            print("*** Caught exception: " + str(e.__class__) + ": " + str(e))
+            logger.error("*** Caught exception: " + str(e.__class__) + ": " + str(e))
             traceback.print_exc()
             try:
                 t.close()
@@ -275,11 +287,11 @@ class SocketHandlerThread(threading.Thread):
             sys.exit(1)
 
 
-def runserver(config):
+def runserver(config, providers):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((config['listen_ip'], config['listen_port']))
+        sock.bind((config["listen_ip"], config["listen_port"]))
     except Exception as e:
         logger.error("*** Bind failed: " + str(e))
         traceback.print_exc()
@@ -299,18 +311,23 @@ def runserver(config):
             logger.error("*** Accept new socket failed: " + str(e))
             continue
         logger.info("get a connection, from addr: {}".format(addr))
-        SocketHandlerThread(client, addr, config).start()
+        SocketHandlerThread(client, addr, config, providers).start()
 
 
 def generate_host_keys(data_dir):
     """
     check host_key exist in data_dir, if not, generate
     """
+    # TODO support new key type: dss, Ed25519, ECDSA
     path = Path(data_dir) / "ssh_host_rsa_key"
     if not path.exists():
         logger.info("Host key do not exist, generate to {}...".format(str(path)))
         rsa_key = paramiko.rsakey.RSAKey.generate(DEFAULT_HOST_RSA_BITS)
         rsa_key.write_private_key_file(str(path))
+
+
+def load_providers(config):
+    return []
 
 
 def main():
@@ -320,5 +337,7 @@ def main():
     )
     args = parser.parse_args()
     config = load_config(args.config_path)
+    config["__config_path__"] = args.config_path
     generate_host_keys(config["data_dir"])
-    runserver(config)
+    providers = load_providers(config)
+    runserver(config, providers)
