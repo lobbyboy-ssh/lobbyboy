@@ -22,7 +22,7 @@ from pathlib import Path
 
 import paramiko
 from paramiko.py3compat import decodebytes
-from paramiko import (AUTH_SUCCESSFUL, AUTH_FAILED)
+from paramiko import AUTH_SUCCESSFUL, AUTH_FAILED
 from subprocess import Popen
 
 from .config import load_config
@@ -58,9 +58,9 @@ def set_winsize(fd, row, col, xpix=0, ypix=0):
 
 class Server(paramiko.ServerInterface):
     def __init__(self, config):
-        self.tty_event = threading.Event()
+        self.pty_event = threading.Event()
         self.shell_event = threading.Event()
-        self.config=config
+        self.config = config
 
     def check_channel_request(self, kind, chanid):
         if kind == "session":
@@ -90,9 +90,17 @@ class Server(paramiko.ServerInterface):
                 continue
             _, _key_pub = line.split(" ", 2)
             accept_key = key_cls(data=base64.b64decode(_key_pub))
-            logger.info("try to auth {} with key {}".format(username, hexlify(accept_key.get_fingerprint()).decode()))
+            logger.info(
+                "try to auth {} with key {}".format(
+                    username, hexlify(accept_key.get_fingerprint()).decode()
+                )
+            )
             if key == accept_key:
-                logger.info("accept auth {} with key {}".format(username, hexlify(accept_key.get_fingerprint()).decode()))
+                logger.info(
+                    "accept auth {} with key {}".format(
+                        username, hexlify(accept_key.get_fingerprint()).decode()
+                    )
+                )
                 return AUTH_SUCCESSFUL
         logger.info("Can not auth {} with any key.".format(username))
         return AUTH_FAILED
@@ -135,11 +143,10 @@ class Server(paramiko.ServerInterface):
 
     def check_channel_shell_request(self, channel):
         logger.info("client request shell...")
-        self.shell_event.wait(10)
-        if not self.shell_event.is_set():
+        self.pty_event.wait(10)
+        if not self.pty_event.is_set():
             logger.error("Client never ask a tty, can not allocate shell...")
             raise Exception("No TTY")
-        logger.debug("user's pty ready, master_fd={}, slave_fd={}".format(self.master_fd, self.slave_fd))
         # if has available servers, prompt login or create
         # if no,  create, and redirect
 
@@ -149,29 +156,33 @@ class Server(paramiko.ServerInterface):
         self, channel, term, width, height, pixelwidth, pixelheight, modes
     ):
         logger.info(
-            "Client request pty...",
-            channel,
-            term,
-            width,
-            height,
-            pixelwidth,
-            pixelwidth,
-            modes,
+            "Client request pty..., term={} width={}, height={}, pixelwidth={}, pixelheight={}, modes={}".format(
+                term, width, height, pixelwidth, pixelwidth, modes
+            )
         )
         self.master_fd, self.slave_fd = pty.openpty()
+        logger.debug(
+            "user's pty ready, master_fd={}, slave_fd={}".format(
+                self.master_fd, self.slave_fd
+            )
+        )
         set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
-        self.tty_event.set()
+        self.pty_event.set()
         return True
 
     def check_channel_window_change_request(
         self, channel, width, height, pixelwidth, pixelheight
     ):
         logger.debug(
-            "window change pty...", channel, width, height, pixelwidth, pixelwidth
+            "client send window size change reuqest... width={}, height={}, pixelwidth={}, pixelheight={}".format(
+                width,
+                height,
+                pixelwidth,
+                pixelheight,
+            )
         )
         set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
-
-        os.kill(self.pid, signal.SIGWINCH)
+        # os.kill(self.pid, signal.SIGWINCH)
         return True
 
 
@@ -229,7 +240,7 @@ class SocketHandlerThread(threading.Thread):
                     "Client never asked for a shell, I am going to end this ssh session now..."
                 )
                 chan.send(
-                    b"*** Client never asked for a shell. Server will end session...\n"
+                    b"*** Client never asked for a shell. Server will end session...\r\n"
                 )
                 t.close()
                 return
