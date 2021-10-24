@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+import re
 import time
+import json
 import base64
 import os
 import socket
@@ -31,6 +33,8 @@ from .config import load_config
 DoGSSAPIKeyExchange = True
 # openssh ssh-keygen: The default length is 3072 bits (RSA) or 256 bits (ECDSA).
 DEFAULT_HOST_RSA_BITS = 3072
+# {server_id: [Transport]}
+active_session = {}
 
 
 def setup_logs(level=logging.DEBUG):
@@ -61,6 +65,10 @@ class Server(paramiko.ServerInterface):
         self.pty_event = threading.Event()
         self.shell_event = threading.Event()
         self.config = config
+        self.window_width = self.window_height = 0
+        self.proxy_subprocess = None
+        self.client_exec = None
+        self.client_exec_provider = None
 
     def check_channel_request(self, kind, chanid):
         if kind == "session":
@@ -123,16 +131,16 @@ class Server(paramiko.ServerInterface):
             <http://www.unix.com/man-page/all/3/krb5_kuserok/>`_
         """
         if gss_authenticated == paramiko.AUTH_SUCCESSFUL:
-            return paramiko.AUTH_SUCCESSFUL
+            return AUTH_SUCCESSFUL
         return AUTH_FAILED
 
     def check_auth_gssapi_keyex(
         self, username, gss_authenticated=AUTH_FAILED, cc_file=None
     ):
         # TODO
-        if gss_authenticated == paramiko.AUTH_SUCCESSFUL:
+        if gss_authenticated == AUTH_SUCCESSFUL:
             logger.info("gss auth success")
-            return paramiko.AUTH_SUCCESSFUL
+            return AUTH_SUCCESSFUL
         return AUTH_FAILED
 
     def enable_auth_gssapi(self):
@@ -147,17 +155,68 @@ class Server(paramiko.ServerInterface):
         if not self.pty_event.is_set():
             logger.error("Client never ask a tty, can not allocate shell...")
             raise Exception("No TTY")
+
         # if has available servers, prompt login or create
         # if no,  create, and redirect
+        available_servers = self._load_availiable_server()
+        if available_servers:
+            channel.send("There are {} available servers:\r\n")
+            channel.send("{>3 - Create a new server...}\r\n".format(0))
+            for index, server in enumerate(available_servers):
+                channel.send(
+                    "{>3} - Enter {} {} ({} active sessions)\r\n".format(
+                        index + 1,
+                        server["id"],
+                        server["host"],
+                        len(active_session[server["id"]]),
+                    )
+                )
+        else:
+            channel.send("There is no available servers, provision a new server...\r\n")
+            # newserver = self._create_new_server()
+            # ssh_command = newserver.get_ssh_command()
+            ssh_command = [
+                "ssh",
+                "-i",
+                "/Users/xintao.lai/Programs/tlpi-code/.vagrant/machines/default/virtualbox/private_key",
+                "-p",
+                "2222",
+                "vagrant@127.0.0.1",
+                "-t",
+            ]
+            self.proxy_subprocess = Popen(
+                ssh_command,
+                preexec_fn=os.setsid,
+                stdin=self.slave_fd,
+                stdout=self.slave_fd,
+                stderr=self.slave_fd,
+                universal_newlines=True,
+            )
+            self.shell_event.set()
 
         return True
+
+    def _load_availiable_server(self):
+        try:
+            server_json = json.load(
+                open(Path(self.config["data_dir"]) / "available_servers.json", "r+")
+            )
+        except Exception as e:
+            logger.error("Error when reading available_servers.json, {}".format(str(e)))
+            return None
+        logger.debug(
+            "open server_json, find {} available_servers: {}".format(
+                len(server_json), server_json
+            )
+        )
+        return server_json
 
     def check_channel_pty_request(
         self, channel, term, width, height, pixelwidth, pixelheight, modes
     ):
         logger.info(
-            "Client request pty..., term={} width={}, height={}, pixelwidth={}, pixelheight={}, modes={}".format(
-                term, width, height, pixelwidth, pixelwidth, modes
+            "Client request pty..., term={} width={}, height={}, pixelwidth={}, pixelheight={}".format(
+                term, width, height, pixelwidth, pixelwidth
             )
         )
         self.master_fd, self.slave_fd = pty.openpty()
@@ -181,8 +240,12 @@ class Server(paramiko.ServerInterface):
                 pixelheight,
             )
         )
+        self.window_width = width
+        self.window_height = height
         set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
-        # os.kill(self.pid, signal.SIGWINCH)
+
+        if self.proxy_subprocess:
+            os.kill(self.proxy_subprocess, signal.SIGWINCH)
         return True
 
 
@@ -234,6 +297,7 @@ class SocketHandlerThread(threading.Thread):
                 t.close()
                 return
 
+            logger.info("going to wait until shell_event.event() is set...")
             server.shell_event.wait(10)
             if not server.shell_event.is_set():
                 logger.warn(
@@ -245,30 +309,8 @@ class SocketHandlerThread(threading.Thread):
                 t.close()
                 return
 
-            command = [
-                "ssh",
-                "-i",
-                "/Users/xintao.lai/Programs/tlpi-code/.vagrant/machines/default/virtualbox/private_key",
-                "-p",
-                "2222",
-                "vagrant@127.0.0.1",
-                "-t",
-            ]
-
-            # open pseudo-terminal to interact with subprocess
-
-            time.sleep(3)
             master_fd, slave_fd = server.master_fd, server.slave_fd
-
-            p = Popen(
-                command,
-                preexec_fn=os.setsid,
-                stdin=slave_fd,
-                stdout=slave_fd,
-                stderr=slave_fd,
-                universal_newlines=True,
-            )
-            server.pid = p.pid
+            p = server.proxy_subprocess
 
             logger.info("open subprocess...")
             chan_fd = chan.fileno()
@@ -280,10 +322,9 @@ class SocketHandlerThread(threading.Thread):
                 elif chan_fd in r:
                     o = chan.recv(10240)
                     os.write(master_fd, o)
+
             chan.send(
-                "pid down, return_code={}, shudown channel...".format(
-                    p.returncode
-                ).encode()
+                b"SSH session to remote server is closed. I will try to destroy the server...\r\n"
             )
             chan.shutdown(0)
             t.close()
