@@ -3,6 +3,13 @@ listen_port = 12200
 listen_ip = "0.0.0.0"
 destroy_interval = "1m"
 
+# CRITICAL
+# ERROR
+# WARNING
+# INFO
+# DEBUG
+log_level = "DEBUG"
+
 [user.Gustave]
 # client pub keys for ssh to lobbyboy server.
 # one key per line

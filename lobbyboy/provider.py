@@ -44,7 +44,7 @@ class BaseProvider:
             while not stop_event.is_set():
                 current = time.time()
                 chan.send(
-                    "\rCreating new server... ({:.1f})s".format(
+                    "\rCreating new server... ({:.1f}s)".format(
                         current - start
                     ).encode()
                 )

@@ -43,14 +43,13 @@ active_sesion_lock = threading.Lock()
 def setup_logs(level=logging.DEBUG):
     """send paramiko logs to a logfile,
     if they're not already going somewhere"""
+
     frm = "%(levelname)-.3s [%(asctime)s.%(msecs)03d] thr=%(thread)d"
     frm += " %(name)s: %(message)s"
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(frm, "%Y%m%d-%H:%M:%S"))
     logging.basicConfig(level=level, handlers=[handler])
 
-
-setup_logs()
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +68,7 @@ class Server(paramiko.ServerInterface):
         self.shell_event = threading.Event()
         self.config = config
         self.window_width = self.window_height = 0
-        self.proxy_subprocess = None
+        self.proxy_subprocess_pid = None
         self.client_exec = None
         self.client_exec_provider = None
         self.providers = providers
@@ -187,28 +186,32 @@ class Server(paramiko.ServerInterface):
         self, channel, width, height, pixelwidth, pixelheight
     ):
         logger.debug(
-            "client send window size change reuqest... width={}, height={}, pixelwidth={}, pixelheight={}".format(
+            "client send window size change reuqest... width={}, height={}, pixelwidth={}, pixelheight={}, my proxy_subprocess_pid={}, master_fd={}".format(
                 width,
                 height,
                 pixelwidth,
                 pixelheight,
+                self.proxy_subprocess_pid,
+                self.master_fd
             )
         )
         self.window_width = width
         self.window_height = height
-        set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
 
-        if self.proxy_subprocess:
-            os.kill(self.proxy_subprocess, signal.SIGWINCH)
+        set_winsize(self.master_fd, height, width, pixelwidth, pixelheight)
+        if self.proxy_subprocess_pid is not None:
+            logger.debug("send signal to {}".format(self.proxy_subprocess_pid))
+            os.kill(self.proxy_subprocess_pid, signal.SIGWINCH)
         return True
 
 
 def evict_active_session(transport, serverid):
     with active_sesion_lock:
-        session_list = active_session[serverid]
-        active_session[serverid] = [
-            _t for _t in session_list if _t.getpeername() != transport.getpeername()
-        ]
+        session_list = active_session.get(serverid)
+        if session_list:
+            active_session[serverid] = [
+                _t for _t in session_list if _t.getpeername() != transport.getpeername()
+            ]
         return
 
 
@@ -275,16 +278,23 @@ class SocketHandlerThread(threading.Thread):
             slave_fd = server.slave_fd
             logger.info("transport peer name: {}".format(t.getpeername()))
             try:
-                p, serverid, provider = self._create_proxy_process(chan, slave_fd)
+                p, serverid= self._create_proxy_process(chan, slave_fd)
             except exceptions.UserCancelException:
                 logger.warn("user input Ctrl-C or Ctrl-D during the input.")
                 chan.send("Got EOF, closing session...\r\n".encode())
                 chan.close()
-                evict_active_session(t, serverid)
+                t.close()
+                return
+            except exceptions.ProviderException as e:
+                logger.warn("got exceptions from provider: {}".format(str(e)))
+                chan.send("Lobbyboy got exceptions from provider: {}".format(str(e)).encode())
+                chan.close()
                 t.close()
                 return
 
-            logger.info("open subprocess...")
+            logger.info("proxy subprocess created, pid={}".format(p.pid))
+            server.proxy_subprocess_pid = p.pid
+
             chan.send((int(server.window_width) * "=" + "\r\n").encode())
             chan_fd = chan.fileno()
             while p.poll() is None:
@@ -296,7 +306,11 @@ class SocketHandlerThread(threading.Thread):
                     o = chan.recv(10240)
                     os.write(master_fd, o)
 
-            chan.send("Lobbyboy: SSH to remote server {} closed.\r\n".format(serverid).encode())
+            chan.send(
+                "Lobbyboy: SSH to remote server {} closed.\r\n".format(
+                    serverid
+                ).encode()
+            )
             evict_active_session(t, serverid)
             self.destroy_server_if_needed(serverid, chan)
             chan.shutdown(0)
@@ -349,13 +363,21 @@ class SocketHandlerThread(threading.Thread):
     def delete_from_server_db(self, serverid):
         with available_server_db_lock:
             servers = self._load_availiable_server()
-            new_servers = [s for s in servers if s['server_id'] != serverid]
+            new_servers = [s for s in servers if s["server_id"] != serverid]
             json.dump(
                 new_servers,
                 open(Path(self.config["data_dir"]) / "available_servers.json", "w+"),
             )
 
     def destroy_server_if_needed(self, serverid, channel):
+        active_session_count = len(active_session[serverid])
+        if active_session_count:
+            channel.send(
+                "Lobbyboy: This server still have {} active session(s), I won't destroy it...\r\n".format(
+                    active_session_count
+                ).encode()
+            )
+            return
         server = self.load_server_info(serverid)
         provider_name = server["provider"]
         pconfig = self.config["provider"][provider_name]
@@ -364,12 +386,16 @@ class SocketHandlerThread(threading.Thread):
         lived_time = time.time() - born_time
         min_life_to_live_seconds = self._parse_time_config(pconfig["min_life_to_live"])
         if min_life_to_live_seconds == 0:
-            channel.send("I will destroy {}({}) now! (min_life_to_live=0)\r\n".format(serverid, server['server_host']).encode())
+            channel.send(
+                "Lobbyboy: I will destroy {}({}) now! (min_life_to_live=0)\r\n".format(
+                    serverid, server["server_host"]
+                ).encode()
+            )
             provider = self.providers[provider_name]
-            provider.destroy_server(serverid, server['server_host'], channel)
+            provider.destroy_server(serverid, server["server_host"], channel)
             self.delete_from_server_db(serverid)
-            channel.send("Server has been destroyed.\r\n".encode())
-            return 
+            channel.send("Lobbyboy: Server has been destroyed.\r\n".encode())
+            return
         bill_time_unit = self._parse_time_config(pconfig["bill_time_unit"])
 
         FIVE_MINUTES = 5 * 60
@@ -383,7 +409,7 @@ class SocketHandlerThread(threading.Thread):
         min_live_left_seconds = min_life_to_live_seconds - lived_time
         if min_live_left_seconds > 0:
             channel.send(
-                "I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
+                "Lobbyboy: I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
                     self._human_time(min_life_to_live_seconds),
                     pconfig["min_life_to_live"],
                 )
@@ -391,18 +417,21 @@ class SocketHandlerThread(threading.Thread):
             return
         if bill_unit_left_time > 0:
             channel.send(
-                "I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
+                "Lobbyboy: I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
                     self._human_time(bill_unit_left_time),
                     pconfig["bill_time_unit"],
                 )
             )
             return
-        channel.send("I will destroy {}({}) now!\r\n".format(serverid, server['server_host']).encode())
+        channel.send(
+            "Lobbyboy: I will destroy {}({}) now!\r\n".format(
+                serverid, server["server_host"]
+            ).encode()
+        )
         provider = self.providers[provider_name]
-        provider.destroy_server(serverid, server['server_host'], channel)
+        provider.destroy_server(serverid, server["server_host"], channel)
         self.delete_from_server_db(serverid)
-        channel.send("Server has been destroyed.".encode())
-
+        channel.send("Lobbyboy: Server has been destroyed.".encode())
 
     def _create_proxy_process(self, channel, slave_fd):
         # if has available servers, prompt login or create
@@ -417,8 +446,9 @@ class SocketHandlerThread(threading.Thread):
             channel.send("{:>3} - Create a new server...\r\n".format(0))
             for index, server in enumerate(available_servers):
                 channel.send(
-                    "{:>3} - Enter {} {} ({} active sessions)\r\n".format(
+                    "{:>3} - Enter {} {} {} ({} active sessions)\r\n".format(
                         index + 1,
+                        server['provider'],
                         server["server_id"],
                         server["server_host"],
                         len(active_session.get(server["server_id"], [])),
@@ -463,7 +493,7 @@ class SocketHandlerThread(threading.Thread):
         )
         with active_sesion_lock:
             active_session.setdefault(serverid, []).append(channel.get_transport())
-        return proxy_subprocess, serverid, provider
+        return proxy_subprocess, serverid
 
     def choose_providers(self, channel):
         if len(self.providers) < 1:
@@ -612,6 +642,8 @@ def main():
     args = parser.parse_args()
     config = load_config(args.config_path)
     config["__config_path__"] = args.config_path
+    log_level = logging.getLevelName(config['log_level'])
+    setup_logs(log_level)
     generate_host_keys(config["data_dir"])
     providers = load_providers(config)
     runserver(config, providers)
