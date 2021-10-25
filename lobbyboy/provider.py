@@ -22,6 +22,12 @@ class BaseProvider:
         pass
 
     def destroy_server(self, server_id, server_ip, channel):
+        """
+        Args:
+            channel: Note that the channel can be None.
+                     If called from server_killer, channel will be None.
+                     if called when user logout from server, channel is active.
+        """
         pass
 
     def ssh_server_command(self, server_id, server_ip):

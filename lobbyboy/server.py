@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import re
+from lobbyboy.server_killer import destroy_server, server_need_destroy
 import time
 import json
 import base64
@@ -29,6 +29,9 @@ from subprocess import Popen
 
 from .config import load_config
 from . import exceptions
+from .utils import load_server_db
+from .server_killer import killer
+from . import __version__
 
 
 DoGSSAPIKeyExchange = True
@@ -50,6 +53,7 @@ def setup_logs(level=logging.DEBUG):
     handler.setFormatter(logging.Formatter(frm, "%Y%m%d-%H:%M:%S"))
     logging.basicConfig(level=level, handlers=[handler])
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +67,7 @@ def set_winsize(fd, row, col, xpix=0, ypix=0):
 
 
 class Server(paramiko.ServerInterface):
-    def __init__(self, config, providers):
+    def __init__(self, config):
         self.pty_event = threading.Event()
         self.shell_event = threading.Event()
         self.config = config
@@ -71,7 +75,6 @@ class Server(paramiko.ServerInterface):
         self.proxy_subprocess_pid = None
         self.client_exec = None
         self.client_exec_provider = None
-        self.providers = providers
         self.master_id = self.slave_fd = None
 
     def check_channel_request(self, kind, chanid):
@@ -192,7 +195,7 @@ class Server(paramiko.ServerInterface):
                 pixelwidth,
                 pixelheight,
                 self.proxy_subprocess_pid,
-                self.master_fd
+                self.master_fd,
             )
         )
         self.window_width = width
@@ -225,6 +228,9 @@ class SocketHandlerThread(threading.Thread):
         self.client_addr = client_addr
         self.config = config
         self.providers = providers
+        self.available_server_db_path = str(
+            Path(config["data_dir"]) / "available_servers.json"
+        )
         super().__init__()
 
     def run(self):
@@ -248,7 +254,7 @@ class SocketHandlerThread(threading.Thread):
                 "Read host key: " + hexlify(host_key.get_fingerprint()).decode()
             )
             t.add_server_key(host_key)
-            server = Server(self.config, self.providers)
+            server = Server(self.config)
             try:
                 t.start_server(server=server)
             except paramiko.SSHException:
@@ -263,6 +269,7 @@ class SocketHandlerThread(threading.Thread):
                 t.close()
                 return
 
+            chan.send("Welcome to Lobbyboy {}!\r\n".format(__version__).encode())
             server.shell_event.wait()
             if not server.shell_event.is_set():
                 logger.warn(
@@ -278,7 +285,7 @@ class SocketHandlerThread(threading.Thread):
             slave_fd = server.slave_fd
             logger.info("transport peer name: {}".format(t.getpeername()))
             try:
-                p, serverid= self._create_proxy_process(chan, slave_fd)
+                p, serverid = self._create_proxy_process(chan, slave_fd)
             except exceptions.UserCancelException:
                 logger.warn("user input Ctrl-C or Ctrl-D during the input.")
                 chan.send("Got EOF, closing session...\r\n".encode())
@@ -287,7 +294,9 @@ class SocketHandlerThread(threading.Thread):
                 return
             except exceptions.ProviderException as e:
                 logger.warn("got exceptions from provider: {}".format(str(e)))
-                chan.send("Lobbyboy got exceptions from provider: {}".format(str(e)).encode())
+                chan.send(
+                    "Lobbyboy got exceptions from provider: {}".format(str(e)).encode()
+                )
                 chan.close()
                 t.close()
                 return
@@ -326,117 +335,44 @@ class SocketHandlerThread(threading.Thread):
                 pass
 
     def load_server_info(self, serverid):
-        servers = self._load_availiable_server()
+        servers = load_server_db(self.available_server_db_path)
         for server in servers:
             if server["server_id"] == serverid:
                 return server
         raise Exception("serverid={} not found!".format(serverid))
 
-    def _parse_time_config(self, timestr):
-        """
-        Args:
-            timestr: str, 10s, 10m, 10h, 10d
-        Returns:
-            seconds
-        """
-        matched = re.match(r"(\d+)s", timestr)
-        if matched:
-            return int(matched.group(1))
-
-        matched = re.match(r"(\d+)m", timestr)
-        if matched:
-            return int(matched.group(1)) * 60
-
-        matched = re.match(r"(\d+)h", timestr)
-        if matched:
-            return int(matched.group(1)) * 60 * 60
-
-        matched = re.match(r"(\d+)d", timestr)
-        if matched:
-            return int(matched.group(1)) * 60 * 60 * 24
-
-        raise Exception("Can not parse {}".format(timestr))
-
     def _human_time(self, seconds: int):
         return "{}s".format(seconds)
 
-    def delete_from_server_db(self, serverid):
-        with available_server_db_lock:
-            servers = self._load_availiable_server()
-            new_servers = [s for s in servers if s["server_id"] != serverid]
-            json.dump(
-                new_servers,
-                open(Path(self.config["data_dir"]) / "available_servers.json", "w+"),
-            )
-
     def destroy_server_if_needed(self, serverid, channel):
-        active_session_count = len(active_session[serverid])
-        if active_session_count:
-            channel.send(
-                "Lobbyboy: This server still have {} active session(s), I won't destroy it...\r\n".format(
-                    active_session_count
-                ).encode()
-            )
-            return
         server = self.load_server_info(serverid)
-        provider_name = server["provider"]
-        pconfig = self.config["provider"][provider_name]
-
-        born_time = server["created_timestamp"]
-        lived_time = time.time() - born_time
-        min_life_to_live_seconds = self._parse_time_config(pconfig["min_life_to_live"])
-        if min_life_to_live_seconds == 0:
+        need_destroy, reason = server_need_destroy(
+            active_sessions=active_session[serverid],
+            serverinfo=server,
+            config=self.config,
+        )
+        channel.send("Lobbyboy: This server {}.\r\n".format(reason).encode())
+        if need_destroy:
             channel.send(
-                "Lobbyboy: I will destroy {}({}) now! (min_life_to_live=0)\r\n".format(
+                "Lobbyboy: I will destroy {}({}) now!\r\n".format(
                     serverid, server["server_host"]
                 ).encode()
             )
+            provider_name = server["provider"]
             provider = self.providers[provider_name]
-            provider.destroy_server(serverid, server["server_host"], channel)
-            self.delete_from_server_db(serverid)
+            destroy_server(
+                provider,
+                server,
+                self.available_server_db_path,
+                available_server_db_lock,
+                channel,
+            )
             channel.send("Lobbyboy: Server has been destroyed.\r\n".encode())
-            return
-        bill_time_unit = self._parse_time_config(pconfig["bill_time_unit"])
-
-        FIVE_MINUTES = 5 * 60
-        destroy_spare_seconds = max(
-            [self._parse_time_config(self.config["destroy_interval"]), FIVE_MINUTES]
-        )
-        bill_unit_left_time = (
-            bill_time_unit - destroy_spare_seconds - (lived_time % bill_time_unit)
-        )
-
-        min_live_left_seconds = min_life_to_live_seconds - lived_time
-        if min_live_left_seconds > 0:
-            channel.send(
-                "Lobbyboy: I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
-                    self._human_time(min_life_to_live_seconds),
-                    pconfig["min_life_to_live"],
-                )
-            )
-            return
-        if bill_unit_left_time > 0:
-            channel.send(
-                "Lobbyboy: I will try to destroy the server after {} (min_life_to_live={})...\r\n".format(
-                    self._human_time(bill_unit_left_time),
-                    pconfig["bill_time_unit"],
-                )
-            )
-            return
-        channel.send(
-            "Lobbyboy: I will destroy {}({}) now!\r\n".format(
-                serverid, server["server_host"]
-            ).encode()
-        )
-        provider = self.providers[provider_name]
-        provider.destroy_server(serverid, server["server_host"], channel)
-        self.delete_from_server_db(serverid)
-        channel.send("Lobbyboy: Server has been destroyed.".encode())
 
     def _create_proxy_process(self, channel, slave_fd):
         # if has available servers, prompt login or create
         # if no,  create, and redirect
-        available_servers = self._load_availiable_server()
+        available_servers = load_server_db(self.available_server_db_path)
         if available_servers:
             channel.send(
                 "There are {} available servers:\r\n".format(
@@ -448,7 +384,7 @@ class SocketHandlerThread(threading.Thread):
                 channel.send(
                     "{:>3} - Enter {} {} {} ({} active sessions)\r\n".format(
                         index + 1,
-                        server['provider'],
+                        server["provider"],
                         server["server_id"],
                         server["server_host"],
                         len(active_session.get(server["server_id"], [])),
@@ -516,7 +452,7 @@ class SocketHandlerThread(threading.Thread):
         provider = self.choose_providers(chan)
         server_id, server_ip = provider.new_server(chan)
         with available_server_db_lock:
-            server_json = self._load_availiable_server()
+            server_json = load_server_db(self.available_server_db_path)
             if not server_json:
                 server_json = []
 
@@ -534,21 +470,6 @@ class SocketHandlerThread(threading.Thread):
             )
 
         return server_id, server_ip, provider
-
-    def _load_availiable_server(self):
-        try:
-            server_json = json.load(
-                open(Path(self.config["data_dir"]) / "available_servers.json", "r+")
-            )
-        except Exception as e:
-            logger.error("Error when reading available_servers.json, {}".format(str(e)))
-            return []
-        logger.debug(
-            "open server_json, find {} available_servers: {}".format(
-                len(server_json), server_json
-            )
-        )
-        return server_json
 
     def read_user_input_line(self, chan):
         # TODO do not support del
@@ -642,8 +563,16 @@ def main():
     args = parser.parse_args()
     config = load_config(args.config_path)
     config["__config_path__"] = args.config_path
-    log_level = logging.getLevelName(config['log_level'])
+    log_level = logging.getLevelName(config["log_level"])
     setup_logs(log_level)
     generate_host_keys(config["data_dir"])
     providers = load_providers(config)
+    killer_thread = threading.Thread(
+        target=killer,
+        args=(config, active_session, available_server_db_lock, providers),
+        daemon=True
+    )
+    killer_thread.start()
+    logger.info("started server_killer thread: {}".format(killer_thread))
+
     runserver(config, providers)

@@ -47,8 +47,8 @@ bill_time_unit = "1h"
 
 [provider.vagrant]
 loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
-min_life_to_live = "0s"
-bill_time_unit = "0s"
+min_life_to_live = "5m"
+bill_time_unit = "2m"
 vagrantfile="""
 Vagrant.configure("2") do |config|
   config.vm.define "{boxname}"
