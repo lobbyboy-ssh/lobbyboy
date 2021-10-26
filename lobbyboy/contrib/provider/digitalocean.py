@@ -36,6 +36,8 @@ class DigitalOceanProvider(BaseProvider):
         pubkey = "{} {}".format(key.get_name(), key.get_base64())
         ssh_keys = self.provider_config["extra_ssh_keys"]
         ssh_keys.append(pubkey)
+        event = threading.Event()
+        self.send_timepass(chan, event)
         droplet = digitalocean.Droplet(
             token=os.getenv("DIGITALOCEAN_TOKEN"),
             name=server_name,
@@ -48,8 +50,6 @@ class DigitalOceanProvider(BaseProvider):
         logger.info("create server data dir: {}".format(server_data))
         actions = droplet.get_actions()
         logger.info("create server actions: {}".format(actions))
-        event = threading.Event()
-        self.send_timepass(chan, event)
         action1 = actions[0]
         check = 0
         while 1:
@@ -66,8 +66,12 @@ class DigitalOceanProvider(BaseProvider):
             if action1.status == "completed":
                 break
 
-        event.set()
         droplet.load()
+        ssh_command = self.ssh_server_command(server_name, droplet.ip_address)
+        logger.info(ssh_command)
+        # wait for server to start up...
+        time.sleep(15)
+        event.set()
         server_info_path = str(server_data / "server.json")
         self._dump_info(droplet, server_info_path)
         chan.send(
@@ -144,4 +148,6 @@ class DigitalOceanProvider(BaseProvider):
 
     def ssh_server_command(self, server_id, server_ip):
         keypath = str(self.data_path / server_id / "id_rsa")
-        return ["ssh", "-i", keypath, "-o",  "StrictHostKeyChecking=no", "root@{}".format(server_ip)]
+        command = ["ssh", "-i", keypath, "-o",  "StrictHostKeyChecking=no", "root@{}".format(server_ip)]
+        logger.info("returning ssh command: {}".format(command))
+        return command
