@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lobbyboy"
-version = "0.2.1"
+version = "0.2.2"
 description = "Give me a server."
 authors = ["laixintao <laixintaoo@gmail.com>"]
 license = "GNU"
