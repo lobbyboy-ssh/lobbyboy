@@ -129,7 +129,18 @@ class DigitalOceanProvider(BaseProvider):
         raise NoAvailableNameException("Server {} already exist!".format(server_name))
 
     def destroy_server(self, server_id, server_ip, channel):
-        return super().destroy_server(server_id, server_ip, channel)
+        logger.info("try to destroy {} {}...".format(server_id, server_ip))
+        with open(self.data_path / server_id / "server.json", "r") as sfile:
+            data = json.load(sfile)
+        do_id = data['id']
+        droplet = digitalocean.Droplet.get_object(
+            api_token=self.token,
+            droplet_id=do_id,
+        )
+        logger.info("get object from digitalocean: {}".format(droplet))
+        result = droplet.destroy()
+        logger.info("destroy droplet, result: {}".format(result))
+
 
     def ssh_server_command(self, server_id, server_ip):
         keypath = str(self.data_path / server_id / "id_rsa")
