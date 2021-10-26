@@ -7,6 +7,7 @@ license = "GNU"
 
 [tool.poetry.scripts]
 lobbyboy-server = 'lobbyboy.server:main'
+lobbyboy-config-example = 'lobbyboy.utils:print_exmaple_config'
 
 [tool.poetry.dependencies]
 python = "^3.9"

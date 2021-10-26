@@ -41,8 +41,8 @@ loadmodule = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
 # - 55m for 55 minutes
 # - 1h for one hour
 # - 2d for 2 days
-min_life_to_live = "1h"
-bill_time_unit = "1h"
+min_life_to_live = "0s"
+bill_time_unit = "0s"
 
 # Will try to read from environment variables first, ``DIGITALOCEAN_TOKEN``
 # if empty, then use this config

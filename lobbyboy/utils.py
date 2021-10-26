@@ -1,4 +1,5 @@
 import re
+import os
 import json
 import logging
 
@@ -47,3 +48,8 @@ def load_server_db(db_path: str):
         )
     )
     return server_json
+
+
+def print_exmaple_config():
+    with open(os.path.dirname(__file__) + "/conf/lobbyboy_config.toml", "r") as econf:
+        print(econf.read())
