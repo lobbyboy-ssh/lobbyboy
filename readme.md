@@ -36,6 +36,19 @@ enter the existing server, or still want to create a new one.
 
 # Installation
 
+Install via pip:
 ```
-   pip install lobbyboy
+pip install lobbyboy
+```
+
+Then generate config file:
+
+```
+lobbyboy-config-example > config.toml
+# Edit your config before running!
+```
+
+Run server
+```
+   lobbyboy-server -c config.toml
 ```
