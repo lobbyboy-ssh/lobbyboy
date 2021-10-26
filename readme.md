@@ -7,6 +7,8 @@
 >
 > <p align='right'>--The Grand Budapest Hotel</p>
 
+**This project is still under testing, it worked but may have bugs.**
+
 ## What is lobbyboy?
 
 Well, lobbyboy is a ssh server. Yes, like `sshd`. But instead of spawn a new
