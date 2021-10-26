@@ -44,6 +44,24 @@ loadmodule = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
 min_life_to_live = "1h"
 bill_time_unit = "1h"
 
+# Will try to read from environment variables first, ``DIGITALOCEAN_TOKEN``
+# if empty, then use this config
+api_token = ""
+
+# private_key used to ssh to your new created server from digitalocean.
+# if set to auto, will generate one everytime.
+# if set to private_key(string), will use this one.
+# a public_key will be generated from private_key, and add to new created
+# servers' ~/.ssh/authorized_keys
+private_key="auto"
+
+# ssh keys, added when create a new server
+# it is a list, every item is a key, each one can be:
+#   * public_key string
+#   * digitalocean ssh key id string
+#   * public_key fingerprint string (you need to setup from digitalocean first)
+extra_ssh_keys = []
+
 
 [provider.vagrant]
 loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"

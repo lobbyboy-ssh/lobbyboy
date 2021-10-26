@@ -10,10 +10,10 @@ class BaseProvider:
         self.provider_config = provider_config
         self.data_path = Path(data_path)
 
-    def new_server(self, chan):
+    def new_server(self, channel):
         """
         Args:
-            chan: channel
+            channel: paramiko channel
 
         Returns:
             created_server_id: unique id from provision
