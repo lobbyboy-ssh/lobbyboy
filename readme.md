@@ -111,3 +111,9 @@ loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
 min_life_to_live = "1h"
 bill_time_unit = "1h"
 ```
+
+## FAQ
+
+Q: Can I use lobbyboy as a proxy, like adding it to my `ProxyCommand` in ssh config?
+
+A: No. Lobbyboy works like a reverse proxy, meaning to say, for ssh client, it just like a ssh server(sshd maybe), ssh client get a shell from lobbyboy, and doesn't know if it is local shell or it is a nested shell which runs another ssh. (but you know it, right? :D )
