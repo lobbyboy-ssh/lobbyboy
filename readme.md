@@ -7,8 +7,9 @@
 >
 > <p align='right'>--The Grand Budapest Hotel</p>
 
-**This project is still under testing, it worked but may have bugs.**
+[![Test](https://github.com/laixintao/lobbyboy/actions/workflows/unittest.yaml/badge.svg)](https://github.com/laixintao/lobbyboy/actions/workflows/unittest.yaml)
 
+**This project is still under testing, it worked but may have bugs.**
 
 <!-- vim-markdown-toc GFM -->
 
