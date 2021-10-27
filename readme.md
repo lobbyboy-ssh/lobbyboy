@@ -57,27 +57,38 @@ enter the existing server, or still want to create a new one.
 
 Install libkrb5-dev first, this is a dependency for gssapi support.
 
-```
+```bash
 apt install libkrb5-dev
 ```
 
 Install via pip:
 
-```
+```bash
 pip install lobbyboy
 ```
 
 Then generate config file:
 
-```
+```bash
 lobbyboy-config-example > config.toml
 # Edit your config before running!
 ```
 
 Run server
 
-```
+```bash
 lobbyboy-server -c config.toml
+```
+
+You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default config. You can ssh to Lobbyboy via: 
+
+```bash
+ssh Gustave@127.0.0.1 -p 12200 -i dev_datadir/test_id_rsa
+Welcome to Lobbyboy 0.2.2!
+There are 1 available servers:
+  0 - Create a new server...
+  1 - Enter vagrant lobbyboy-41 127.0.0.1 (0 active sessions)
+Please input your choice (number):
 ```
 
 Lobbyboy is supposed to be a server daemon, so you can manage it by
