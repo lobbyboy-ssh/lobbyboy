@@ -21,7 +21,9 @@ jobs:
         with:
           path: venv
           # Look to see if there is a cache hit for the corresponding requirements file
-          key: ubuntu-16.04-poetryenv-${{ hashFiles('poetry.lock') }}
+          key: ubuntu-latest-poetryenv-${{ hashFiles('poetry.lock') }}
+      - name: Install system dependencies
+        run: apt install libkrb5-dev
       - name: Install Dependencies
         run: |
           python3 -m venv venv

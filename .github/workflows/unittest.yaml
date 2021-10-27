@@ -21,6 +21,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           architecture: 'x64'
+      - name: Install system dependencies
+        run: apt install libkrb5-dev
       - name: Cache venv
         uses: actions/cache@v2
         with:
