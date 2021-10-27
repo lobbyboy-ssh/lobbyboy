@@ -61,6 +61,17 @@ lobbyboy-server -c config.toml
 
 // TBD
 
+### Builtin Providers
+
+Lobbyboy current support two Providers:
+
+- DigitalOcean
+- Vagrant (Need vagrant and virtualbox to be installed)
+
+Different Providers support different configs, please see the
+[example config](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
+for more detail.
+
 ### Write Your Own Providers
 
 Providers are VPS vendors, by writing new providers, lobbyboy can work with any
@@ -116,6 +127,10 @@ bill_time_unit = "1h"
 
 ## FAQ
 
-Q: Can I use lobbyboy as a proxy, like adding it to my `ProxyCommand` in ssh config?
+Q: Can I use lobbyboy as a proxy, like adding it to my `ProxyCommand` in ssh
+config?
 
-A: No. Lobbyboy works like a reverse proxy, meaning to say, for ssh client, it just like a ssh server(sshd maybe), ssh client get a shell from lobbyboy, and doesn't know if it is local shell or it is a nested shell which runs another ssh. (but you know it, right? :D )
+A: No. Lobbyboy works like a reverse proxy, meaning to say, for ssh client, it
+just like a ssh server(sshd maybe), ssh client get a shell from lobbyboy, and
+doesn't know if it is local shell or it is a nested shell which runs another
+ssh. (but you know it, right? :D )
