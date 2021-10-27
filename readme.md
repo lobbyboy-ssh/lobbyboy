@@ -54,6 +54,12 @@ enter the existing server, or still want to create a new one.
 
 ## Installation
 
+Install libkrb5-dev first, this is a dependency for gssapi support.
+
+```
+apt install libkrb5-dev
+```
+
 Install via pip:
 
 ```
