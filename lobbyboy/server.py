@@ -14,9 +14,6 @@ import pty
 import struct
 import fcntl
 import signal
-import termios
-import struct
-import fcntl
 import logging
 import argparse
 import importlib
@@ -189,7 +186,11 @@ class Server(paramiko.ServerInterface):
         self, channel, width, height, pixelwidth, pixelheight
     ):
         logger.debug(
-            "client send window size change reuqest... width={}, height={}, pixelwidth={}, pixelheight={}, my proxy_subprocess_pid={}, master_fd={}".format(
+            (
+                "client send window size change reuqest... "
+                "width={}, height={}, pixelwidth={}, pixelheight={}, "
+                "my proxy_subprocess_pid={}, master_fd={}"
+            ).format(
                 width,
                 height,
                 pixelwidth,
@@ -244,7 +245,7 @@ class SocketHandlerThread(threading.Thread):
             t.set_gss_host(socket.getfqdn(""))
             try:
                 t.load_server_moduli()
-            except:
+            except:  # noqa
                 logger.error("(Failed to load moduli -- gex will be unsupported.)")
                 raise
             host_key = paramiko.RSAKey(
@@ -307,7 +308,7 @@ class SocketHandlerThread(threading.Thread):
             chan.send((int(server.window_width) * "=" + "\r\n").encode())
             chan_fd = chan.fileno()
             while p.poll() is None:
-                r, w, e = select.select([master_fd, chan_fd], [], [], 0.1)
+                r, _, _ = select.select([master_fd, chan_fd], [], [], 0.1)
                 if master_fd in r:
                     d = os.read(master_fd, 10240)
                     chan.send(d)
@@ -325,13 +326,15 @@ class SocketHandlerThread(threading.Thread):
             chan.shutdown(0)
             t.close()
 
-        except Exception as e:
-            logger.error("*** Caught exception: " + str(e.__class__) + ": " + str(e))
-            traceback.print_exc()
+        except Exception:
+            logger.critical(
+                "*** Socket thread error.",
+                exc_info=True,
+            )
             try:
                 evict_active_session(t, serverid)
                 t.close()
-            except:
+            except:  # noqa
                 pass
 
     def load_server_info(self, serverid):
@@ -570,7 +573,7 @@ def main():
     killer_thread = threading.Thread(
         target=killer,
         args=(config, active_session, available_server_db_lock, providers),
-        daemon=True
+        daemon=True,
     )
     killer_thread.start()
     logger.info("started server_killer thread: {}".format(killer_thread))

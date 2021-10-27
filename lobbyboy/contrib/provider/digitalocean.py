@@ -136,7 +136,7 @@ class DigitalOceanProvider(BaseProvider):
         logger.info("try to destroy {} {}...".format(server_id, server_ip))
         with open(self.data_path / server_id / "server.json", "r") as sfile:
             data = json.load(sfile)
-        do_id = data['id']
+        do_id = data["id"]
         droplet = digitalocean.Droplet.get_object(
             api_token=self.token,
             droplet_id=do_id,
@@ -145,9 +145,15 @@ class DigitalOceanProvider(BaseProvider):
         result = droplet.destroy()
         logger.info("destroy droplet, result: {}".format(result))
 
-
     def ssh_server_command(self, server_id, server_ip):
         keypath = str(self.data_path / server_id / "id_rsa")
-        command = ["ssh", "-i", keypath, "-o",  "StrictHostKeyChecking=no", "root@{}".format(server_ip)]
+        command = [
+            "ssh",
+            "-i",
+            keypath,
+            "-o",
+            "StrictHostKeyChecking=no",
+            "root@{}".format(server_ip),
+        ]
         logger.info("returning ssh command: {}".format(command))
         return command

@@ -51,7 +51,11 @@ def server_need_destroy(active_sessions: list, serverinfo: dict, config: dict):
 
     Args:
         active_session: list, track current active session on sever
-        serverinfo: dict, example: {'server_id': 'lobbyboy-29', 'server_host': '127.0.0.1', 'provider': 'vagrant', 'created_timestamp': 1635175057.377654}
+        serverinfo: dict, example:
+            {'server_id': 'lobbyboy-29',
+             'server_host': '127.0.0.1',
+             'provider': 'vagrant',
+             'created_timestamp': 1635175057.377654}
     Returns:
         tuple, (need_to_be_destroy: bool, reason: str)
     """
