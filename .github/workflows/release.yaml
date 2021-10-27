@@ -8,7 +8,7 @@ on:
 jobs:
   release-pypi:
     name: release-pypi
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
