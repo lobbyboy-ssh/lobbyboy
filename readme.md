@@ -9,6 +9,22 @@
 
 **This project is still under testing, it worked but may have bugs.**
 
+
+<!-- vim-markdown-toc GFM -->
+
+* [What is lobbyboy?](#what-is-lobbyboy)
+* [Key Features](#key-features)
+* [Installation](#installation)
+  * [Systemd Example](#systemd-example)
+  * [Run in Docker](#run-in-docker)
+* [Providers](#providers)
+  * [Builtin Providers](#builtin-providers)
+  * [Write Your Own Providers](#write-your-own-providers)
+  * [Publish Your Own Providers](#publish-your-own-providers)
+* [FAQ](#faq)
+
+<!-- vim-markdown-toc -->
+
 ## What is lobbyboy?
 
 Well, lobbyboy is a ssh server. Yes, like `sshd`. But instead of spawn a new
@@ -56,6 +72,15 @@ Run server
 ```
 lobbyboy-server -c config.toml
 ```
+
+Lobbyboy is supposed to be a server daemon, so you can manage it by
+systemd/[supervisord](http://supervisord.org/) or put it into a docker.
+
+### Systemd Example
+
+### Run in Docker
+
+// TBD
 
 ## Providers
 
@@ -124,6 +149,10 @@ loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
 min_life_to_live = "1h"
 bill_time_unit = "1h"
 ```
+
+### Publish Your Own Providers
+
+// TBD
 
 ## FAQ
 

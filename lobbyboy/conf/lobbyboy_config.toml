@@ -65,8 +65,8 @@ extra_ssh_keys = []
 
 [provider.vagrant]
 loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
-min_life_to_live = "5m"
-bill_time_unit = "2m"
+min_life_to_live = "1h"
+bill_time_unit = "1h"
 vagrantfile="""
 Vagrant.configure("2") do |config|
   config.vm.define "{boxname}"
