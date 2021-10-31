@@ -102,7 +102,6 @@ class DigitalOceanProvider(BaseProvider):
             time.sleep(1)
             count += 1
 
-
     def _ask_user_custmize_server(self, chan):
         manually_create_choice = "Manually choose a new droplet to create..."
         favorites = [manually_create_choice] + self.provider_config["favorite_droplets"]
@@ -137,10 +136,7 @@ class DigitalOceanProvider(BaseProvider):
         )
 
         size_slugs = [
-            "{}: {} ({})".format(
-                i.distribution, i.name, i.slug
-            )
-            for i in images
+            "{}: {} ({})".format(i.distribution, i.name, i.slug) for i in images
         ]
         _, choosed_index = self.choose_option(
             "Please choose droplet image: ", size_slugs, chan
