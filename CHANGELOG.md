@@ -1,4 +1,7 @@
-## Coming Next...
+## Comming Next
+
+
+## 0.2.3
 
 - chore: Add unit test
 - feature: Provider DigitalOcean support choosing region/size/image when
