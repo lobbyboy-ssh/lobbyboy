@@ -23,6 +23,7 @@
   * [Write Your Own Providers](#write-your-own-providers)
   * [Publish Your Own Providers](#publish-your-own-providers)
 * [FAQ](#faq)
+* [I Want to Know More!](#i-want-to-know-more)
 
 <!-- vim-markdown-toc -->
 
@@ -80,7 +81,8 @@ Run server
 lobbyboy-server -c config.toml
 ```
 
-You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default config. You can ssh to Lobbyboy via: 
+You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default
+config. You can ssh to Lobbyboy via:
 
 ```bash
 ssh Gustave@127.0.0.1 -p 12200 -i dev_datadir/test_id_rsa
@@ -181,3 +183,7 @@ A: No. Lobbyboy works like a reverse proxy, meaning to say, for ssh client, it
 just like a ssh server(sshd maybe), ssh client get a shell from lobbyboy, and
 doesn't know if it is local shell or it is a nested shell which runs another
 ssh. (but you know it, right? :D )
+
+## I Want to Know More!
+
+- [介绍 Lobbyboy 项目](https://www.kawabangga.com/posts/4576) (in Chinese)
