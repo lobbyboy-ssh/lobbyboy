@@ -133,47 +133,7 @@ Please see
 [configs](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
 to check available options.
 
-```shell
-$ ssh lobbyboy.kawabangga.com
-Welcome to Lobbyboy 0.2.2!
-There is no available servers, provision a new server...
-Available VPS providers:
-  0 - digitalocean
-  1 - vagrant
-Please choose a provider to create a new server: 0
-Please choose new droplet to create:
-  0 - Manually choose a new droplet to create...
-  1 - sgp1:s-1vcpu-1gb:ubuntu-21-04-x64
-  2 - sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs
-  3 - sfo1:s-1vcpu-1gb:fedora-33-x64
-Please enter the number of choice: 0
-Fetching metadata from digitalocean...
-Please choose region:
-  0 - New York 1 (nyc1)
-  1 - San Francisco 1 (sfo1)
-  2 - New York 2 (nyc2)
-  3 - Amsterdam 2 (ams2)
-  4 - Singapore 1 (sgp1)
-  5 - London 1 (lon1)
-  6 - New York 3 (nyc3)
-  7 - Amsterdam 3 (ams3)
-  8 - Frankfurt 1 (fra1)
-  9 - Toronto 1 (tor1)
- 10 - San Francisco 2 (sfo2)
- 11 - Bangalore 1 (blr1)
- 12 - San Francisco 3 (sfo3)
-Please enter the number of choice: 0
-Please choose droplet size:
-  0 - s-1vcpu-1gb
-  1 - s-1vcpu-1gb-amd
-  2 - s-1vcpu-1gb-intel
-  3 - s-1vcpu-2gb
-  4 - s-1vcpu-2gb-amd
-  5 - s-1vcpu-2gb-intel
-  6 - s-2vcpu-2gb
-  7 - s-2vcpu-2gb-amd
-  8 - s-2vcpu-2gb-intel
-```
+![](./docs/images/do-preview.png)
 
 ### Write Your Own Providers
 
