@@ -20,9 +20,11 @@
   * [Run in Docker](#run-in-docker)
 * [Providers](#providers)
   * [Builtin Providers](#builtin-providers)
+    * [DigitalOcean Provider](#digitalocean-provider)
   * [Write Your Own Providers](#write-your-own-providers)
   * [Publish Your Own Providers](#publish-your-own-providers)
 * [FAQ](#faq)
+* [I Want to Know More!](#i-want-to-know-more)
 
 <!-- vim-markdown-toc -->
 
@@ -80,7 +82,8 @@ Run server
 lobbyboy-server -c config.toml
 ```
 
-You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default config. You can ssh to Lobbyboy via: 
+You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default
+config. You can ssh to Lobbyboy via:
 
 ```bash
 ssh Gustave@127.0.0.1 -p 12200 -i dev_datadir/test_id_rsa
@@ -114,6 +117,63 @@ Lobbyboy current support two Providers:
 Different Providers support different configs, please see the
 [example config](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
 for more detail.
+
+#### DigitalOcean Provider
+
+This Provider will create Droplet from DigitalOcean.
+
+Supported Features:
+
+- Create a new ssh key every time create a droplet.
+- Ask user to input region/droplet size/image when creating.
+- User can save favorite Droplet region/size/image in configs to quick create.
+- Destroy droplet when it is not in use.
+
+Please see
+[configs](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
+to check available options.
+
+```shell
+$ ssh lobbyboy.kawabangga.com
+Welcome to Lobbyboy 0.2.2!
+There is no available servers, provision a new server...
+Available VPS providers:
+  0 - digitalocean
+  1 - vagrant
+Please choose a provider to create a new server: 0
+Please choose new droplet to create:
+  0 - Manually choose a new droplet to create...
+  1 - sgp1:s-1vcpu-1gb:ubuntu-21-04-x64
+  2 - sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs
+  3 - sfo1:s-1vcpu-1gb:fedora-33-x64
+Please enter the number of choice: 0
+Fetching metadata from digitalocean...
+Please choose region:
+  0 - New York 1 (nyc1)
+  1 - San Francisco 1 (sfo1)
+  2 - New York 2 (nyc2)
+  3 - Amsterdam 2 (ams2)
+  4 - Singapore 1 (sgp1)
+  5 - London 1 (lon1)
+  6 - New York 3 (nyc3)
+  7 - Amsterdam 3 (ams3)
+  8 - Frankfurt 1 (fra1)
+  9 - Toronto 1 (tor1)
+ 10 - San Francisco 2 (sfo2)
+ 11 - Bangalore 1 (blr1)
+ 12 - San Francisco 3 (sfo3)
+Please enter the number of choice: 0
+Please choose droplet size:
+  0 - s-1vcpu-1gb
+  1 - s-1vcpu-1gb-amd
+  2 - s-1vcpu-1gb-intel
+  3 - s-1vcpu-2gb
+  4 - s-1vcpu-2gb-amd
+  5 - s-1vcpu-2gb-intel
+  6 - s-2vcpu-2gb
+  7 - s-2vcpu-2gb-amd
+  8 - s-2vcpu-2gb-intel
+```
 
 ### Write Your Own Providers
 
@@ -181,3 +241,7 @@ A: No. Lobbyboy works like a reverse proxy, meaning to say, for ssh client, it
 just like a ssh server(sshd maybe), ssh client get a shell from lobbyboy, and
 doesn't know if it is local shell or it is a nested shell which runs another
 ssh. (but you know it, right? :D )
+
+## I Want to Know More!
+
+- [介绍 Lobbyboy 项目](https://www.kawabangga.com/posts/4576) (in Chinese)

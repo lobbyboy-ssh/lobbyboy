@@ -4,6 +4,9 @@ import json
 import logging
 
 
+from . import exceptions
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,3 +56,32 @@ def load_server_db(db_path: str):
 def print_exmaple_config():
     with open(os.path.dirname(__file__) + "/conf/lobbyboy_config.toml", "r") as econf:
         print(econf.read())
+
+
+def choose_option(ask_prompt: str, options, channel):
+    """
+    ask user to choose one option from channel
+    """
+    channel.send((ask_prompt + "\r\n").encode())
+    for index, option in enumerate(options):
+        channel.send("{:>3} - {}\r\n".format(index, option))
+    channel.send("Please enter the number of choice: ".encode())
+    user_input = int(read_user_input_line(channel))
+    return options[user_input], user_input
+
+
+def read_user_input_line(chan):
+    # TODO do not support del
+    logger.debug("reading from channel... {}".format(chan))
+    chars = []
+    while 1:
+        content = chan.recv(1)
+        logger.debug("channel recv: {}".format(content))
+        if content == b"\r":
+            chan.send(b"\r\n")
+            break
+        if content == b"\x04" or content == b"\x03":
+            raise exceptions.UserCancelException()
+        chan.send(content)
+        chars.append(content)
+    return b"".join(chars).decode()

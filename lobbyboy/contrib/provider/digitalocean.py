@@ -3,9 +3,10 @@ import json
 import logging
 import datetime
 import paramiko
-import digitalocean
+import digitalocean as do
 import threading
 import time
+import socket
 
 
 from lobbyboy.provider import BaseProvider
@@ -36,16 +37,23 @@ class DigitalOceanProvider(BaseProvider):
         pubkey = "{} {}".format(key.get_name(), key.get_base64())
         ssh_keys = self.provider_config["extra_ssh_keys"]
         ssh_keys.append(pubkey)
-        event = threading.Event()
-        self.send_timepass(chan, event)
-        droplet = digitalocean.Droplet(
+        region, size, image = self._ask_user_custmize_server(chan)
+        logger.info(
+            (
+                "going to create a new droplet in digitalocean... name={}, "
+                "region={}, image={}, size_slug={}"
+            ).format(server_name, region, image, size)
+        )
+        droplet = do.Droplet(
             token=os.getenv("DIGITALOCEAN_TOKEN"),
             name=server_name,
-            region="sgp1",  # New York 2
-            image="ubuntu-20-04-x64",  # Ubuntu 20.04 x64
-            size_slug="s-1vcpu-1gb",  # 1GB RAM, 1 vCPU
+            region=region,
+            image=image,
+            size_slug=size,
             ssh_keys=ssh_keys,
         )
+        event = threading.Event()
+        self.send_timepass(chan, event)
         droplet.create()
         logger.info("create server data dir: {}".format(server_data))
         actions = droplet.get_actions()
@@ -67,10 +75,6 @@ class DigitalOceanProvider(BaseProvider):
                 break
 
         droplet.load()
-        ssh_command = self.ssh_server_command(server_name, droplet.ip_address)
-        logger.info(ssh_command)
-        # wait for server to start up...
-        time.sleep(15)
         event.set()
         server_info_path = str(server_data / "server.json")
         self._dump_info(droplet, server_info_path)
@@ -79,7 +83,66 @@ class DigitalOceanProvider(BaseProvider):
                 server_name, droplet.ip_address
             ).encode()
         )
+        # wait for server to start up...
+        chan.send("Waiting server to boot...\r\n".encode())
+        self.block_test_server_connectable(droplet.ip_address, 22)
         return server_name, droplet.ip_address
+
+    def block_test_server_connectable(self, ip, port):
+
+        location = (ip, int(port))
+        result = 1
+        count = 1
+        while result != 0:
+            a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            a_socket.settimeout(2)
+            result = a_socket.connect_ex(location)
+            a_socket.close()
+            logger.debug("{} check, reuslt is {}".format(count, result))
+            time.sleep(1)
+            count += 1
+
+    def _ask_user_custmize_server(self, chan):
+        manually_create_choice = "Manually choose a new droplet to create..."
+        favorites = [manually_create_choice] + self.provider_config["favorite_droplets"]
+        choosed, _ = self.choose_option(
+            "Please choose new droplet to create: ", favorites, chan
+        )
+        logger.info("choose droplet, user choosed: {}".format(choosed))
+        if choosed == manually_create_choice:
+            return self._manually_create_new_droplet(chan)
+        region, size, image = choosed.split(":")
+        return region, size, image
+
+    def _manually_create_new_droplet(self, chan):
+        do_manager = do.Manager(token=self.token)
+
+        chan.send("Fetching metadata from digitalocean...\r\n".encode())
+        regions = do_manager.get_all_regions()
+        sizes = do_manager.get_all_sizes()
+        images = do_manager.get_all_images()
+        # backup image is not usable
+        images = [image for image in images if image.slug is not None]
+
+        region_slugs = ["{} ({})".format(r.name, r.slug) for r in regions]
+        _, choosed_region_index = self.choose_option(
+            "Please choose region: ", region_slugs, chan
+        )
+        choosed_region = regions[choosed_region_index].slug
+
+        size_slugs = [s.slug for s in sizes]
+        choosed_size, _ = self.choose_option(
+            "Please choose droplet size: ", size_slugs, chan
+        )
+
+        size_slugs = [
+            "{}: {} ({})".format(i.distribution, i.name, i.slug) for i in images
+        ]
+        _, choosed_index = self.choose_option(
+            "Please choose droplet image: ", size_slugs, chan
+        )
+
+        return choosed_region, choosed_size, images[choosed_index].slug
 
     def _dump_info(self, droplet, path):
         data = {
@@ -130,6 +193,11 @@ class DigitalOceanProvider(BaseProvider):
         if not vm_data.exists():
             os.mkdir(str(vm_data))
             return server_name
+        for suffix in "abcdefg":
+            vm_data = self.data_path / (server_name + suffix)
+            if not vm_data.exists():
+                os.mkdir(str(vm_data))
+                return server_name + suffix
         raise NoAvailableNameException("Server {} already exist!".format(server_name))
 
     def destroy_server(self, server_id, server_ip, channel):
@@ -137,7 +205,7 @@ class DigitalOceanProvider(BaseProvider):
         with open(self.data_path / server_id / "server.json", "r") as sfile:
             data = json.load(sfile)
         do_id = data["id"]
-        droplet = digitalocean.Droplet.get_object(
+        droplet = do.Droplet.get_object(
             api_token=self.token,
             droplet_id=do_id,
         )
