@@ -6,6 +6,7 @@ import paramiko
 import digitalocean as do
 import threading
 import time
+import socket
 
 
 from lobbyboy.provider import BaseProvider
@@ -74,10 +75,6 @@ class DigitalOceanProvider(BaseProvider):
                 break
 
         droplet.load()
-        ssh_command = self.ssh_server_command(server_name, droplet.ip_address)
-        logger.info(ssh_command)
-        # wait for server to start up...
-        time.sleep(15)
         event.set()
         server_info_path = str(server_data / "server.json")
         self._dump_info(droplet, server_info_path)
@@ -86,7 +83,25 @@ class DigitalOceanProvider(BaseProvider):
                 server_name, droplet.ip_address
             ).encode()
         )
+        # wait for server to start up...
+        chan.send("Waiting server to boot...\r\n".encode())
+        self.block_test_server_connectable(droplet.ip_address, 22)
         return server_name, droplet.ip_address
+
+    def block_test_server_connectable(self, ip, port):
+
+        location = (ip, int(port))
+        result = 1
+        count = 1
+        while result != 0:
+            a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            a_socket.settimeout(2)
+            result = a_socket.connect_ex(location)
+            a_socket.close()
+            logger.debug("{} check, reuslt is {}".format(count, result))
+            time.sleep(1)
+            count += 1
+
 
     def _ask_user_custmize_server(self, chan):
         manually_create_choice = "Manually choose a new droplet to create..."

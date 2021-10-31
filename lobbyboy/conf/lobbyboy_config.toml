@@ -66,8 +66,9 @@ extra_ssh_keys = []
 # quick choose a favorite droplet tempalte to create
 # format: regions-slug:size-slug:image-slug
 favorite_droplets=[
-    "sfo1:s-1vcpu-1gb:fedora-33-x64",
+    "sgp1:s-1vcpu-1gb:ubuntu-21-04-x64",
     "sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs",
+    "sfo1:s-1vcpu-1gb:fedora-33-x64",
 ]
 
 
