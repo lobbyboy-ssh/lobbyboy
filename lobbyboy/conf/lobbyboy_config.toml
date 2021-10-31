@@ -12,6 +12,7 @@ log_level = "DEBUG"
 
 [user.Gustave]
 # client pub keys for ssh to lobbyboy server.
+# not change this config will take effect immediately, no need to restart lobby
 # one key per line
 authorized_keys = """
 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7WY43dCG2GM3wUVRGpACawn1EWAXmnNmjoFbtoJCx6qCJW5TRgWCW+CtjqWluE5ripFaj0EQk0C3dJzfFdBlQXwLa1CzUEx48qqF/t3OtR21qyLrekWVLcS+FIEllixjhnDe3P+mY2nuywf78fZI9dvLotqOGtk+zjhUDX+3wgRbwAjrD4CPRqLVXactB6pdaBX5t1sUhGEjezE7rm0v4At5XxKHRRU9bSGIzJ+sNmBByavlFXPwSMPLLVuyvFf2OujSUYsXKI6zADu5ypK1dCgsEUoEglQMCaew51NrASZGVsH56Rx1vFHssZwksK9WhM8f9CdfRHml4l7JSLea9XQNNovsJKUZ3aaH4DKA8lyhAYeY9/mRDiUdfMb6CzyqrXvcb0bDvDX0dzuseP3e6v+7QnrM39zxp5gJXUAIOuEl1Bhrjpa4LqROK2PLsmHRwnhk5JPlabIuvjVoSnWnFIrwudWgtwg+Zm5phlhjMfxuEglvJwLul9vaG4hGfGJ0=
@@ -61,6 +62,13 @@ private_key="auto"
 #   * digitalocean ssh key id string
 #   * public_key fingerprint string (you need to setup from digitalocean first)
 extra_ssh_keys = []
+
+# quick choose a favorite droplet tempalte to create
+# format: regions-slug:size-slug:image-slug
+favorite_droplets=[
+    "sfo1:s-1vcpu-1gb:fedora-33-x64",
+    "sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs",
+]
 
 
 [provider.vagrant]

@@ -1,6 +1,11 @@
 from pathlib import Path
+import logging
 import time
 import threading
+
+from lobbyboy.utils import choose_option
+
+logger = logging.getLogger(__name__)
 
 
 class BaseProvider:
@@ -58,3 +63,27 @@ class BaseProvider:
 
         t = threading.Thread(target=_print_time_elaspe)
         t.start()
+
+    def choose_option(self, ask_prompt, options, channel):
+        """
+        Utils function.
+        Give the user a list of choices, and return the user choosed one.
+
+        Args:
+            ask_prompt: str, a prompt to tell user what they are choosing
+            options: list, a list of string
+            channel: the channel to send and read user input
+
+        Returns:
+            string: user choosed option (in options)
+            int: user input number
+
+        Raises:
+            lobbyboy.exceptions.UserCancelException: User press Ctrl-C to cancel the input
+        """
+        logger.info(
+            "ask user to choose from {}, propmpt: {}".format(options, ask_prompt)
+        )
+        result = choose_option(ask_prompt, options, channel)
+        logger.info("user choose reuslt: {}".format(result))
+        return result

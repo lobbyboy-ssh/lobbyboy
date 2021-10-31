@@ -26,7 +26,7 @@ from subprocess import Popen
 
 from .config import load_config
 from . import exceptions
-from .utils import load_server_db
+from .utils import load_server_db, read_user_input_line
 from .server_killer import killer
 from . import __version__
 
@@ -394,7 +394,7 @@ class SocketHandlerThread(threading.Thread):
                     )
                 )
             channel.send("Please input your choice (number): ".encode())
-            user_input = int(self.read_user_input_line(channel))
+            user_input = int(read_user_input_line(channel))
             if user_input == 0:
                 logger.info("userinput=0, wants to create a new server...")
                 serverid, serverhost, provider = self._create_new_server(channel)
@@ -447,7 +447,7 @@ class SocketHandlerThread(threading.Thread):
             for index, name in enumerate(pnames):
                 channel.send("{:>3} - {}\r\n".format(index, name))
             channel.send("Please choose a provider to create a new server: ")
-            user_input = self.read_user_input_line(channel)
+            user_input = read_user_input_line(channel)
             choosed_provider_name = pnames[int(user_input)]
             return self.providers[choosed_provider_name]
 
@@ -473,22 +473,6 @@ class SocketHandlerThread(threading.Thread):
             )
 
         return server_id, server_ip, provider
-
-    def read_user_input_line(self, chan):
-        # TODO do not support del
-        logger.debug("reading from channel... {}".format(chan))
-        chars = []
-        while 1:
-            content = chan.recv(1)
-            logger.debug("channel recv: {}".format(content))
-            if content == b"\r":
-                chan.send(b"\r\n")
-                break
-            if content == b"\x04" or content == b"\x03":
-                raise exceptions.UserCancelException()
-            chan.send(content)
-            chars.append(content)
-        return b"".join(chars).decode()
 
 
 def runserver(config, providers):
