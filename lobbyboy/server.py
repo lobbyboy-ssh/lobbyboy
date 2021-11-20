@@ -100,7 +100,7 @@ class Server(paramiko.ServerInterface):
         for line in keys_string.split("\n"):
             if not line.startswith(key_type):
                 continue
-            _, _key_pub = line.split(" ", 2)
+            _, _key_pub = line.split(" ", 1)
             accept_key = key_cls(data=base64.b64decode(_key_pub))
             logger.info(
                 "try to auth {} with key {}".format(
@@ -511,6 +511,8 @@ def generate_host_keys(data_dir):
     if not path.exists():
         logger.info("Host key do not exist, generate to {}...".format(str(path)))
         rsa_key = paramiko.RSAKey.generate(DEFAULT_HOST_RSA_BITS)
+        if not path.exists():
+            with open(path, "w+"): pass
         rsa_key.write_private_key_file(str(path))
 
 
@@ -541,6 +543,11 @@ def load_providers(config):
 
     return _providers
 
+def ensure_data_dir_exist(path):
+    path = Path(path)
+    if not path.exists():
+        logger.info("data dir {} not exist, create a dir...".format(path))
+        os.mkdir(path)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -552,6 +559,7 @@ def main():
     config["__config_path__"] = args.config_path
     log_level = logging.getLevelName(config["log_level"])
     setup_logs(log_level)
+    ensure_data_dir_exist(config['data_dir'])
     generate_host_keys(config["data_dir"])
     providers = load_providers(config)
     killer_thread = threading.Thread(

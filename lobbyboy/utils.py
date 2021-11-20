@@ -43,7 +43,7 @@ def load_server_db(db_path: str):
     try:
         server_json = json.load(open(db_path, "r+"))
     except Exception as e:
-        logger.error("Error when reading available_servers.json, {}".format(str(e)))
+        logger.warn("Error when reading available_servers.json, {}".format(str(e)))
         return []
     logger.debug(
         "open server_json, find {} available_servers: {}".format(

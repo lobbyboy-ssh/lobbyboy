@@ -1,4 +1,4 @@
-data_dir = "/Users/xintao.lai/Programs/lobbyboy/dev_datadir"
+data_dir = "/Users/xintao.lai/Programs/lobbyboy/dev_datadir2"
 listen_port = 12200
 listen_ip = "0.0.0.0"
 destroy_interval = "1m"
