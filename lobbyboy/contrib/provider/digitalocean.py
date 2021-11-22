@@ -45,7 +45,7 @@ class DigitalOceanProvider(BaseProvider):
             ).format(server_name, region, image, size)
         )
         droplet = do.Droplet(
-            token=os.getenv("DIGITALOCEAN_TOKEN"),
+            token=self.token,
             name=server_name,
             region=region,
             image=image,
