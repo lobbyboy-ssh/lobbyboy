@@ -28,7 +28,8 @@ class ServerKiller:
 
         for server_name, meta in metas.items():
             provider: BaseProvider
-            if not (provider := self.watched_providers.get(meta.provider_name)):
+            provider = self.watched_providers.get(meta.provider_name)
+            if not provider:
                 logger.error(f"can't find provider of server {meta.server_name}, destroy check failed.")
                 raise Exception
 
@@ -52,7 +53,8 @@ class ServerKiller:
         """
         # check whether there is an activity session first
         active_sessions = active_session.get(meta.server_name, [])
-        if active_session_cnt := len(active_sessions):
+        active_session_cnt = len(active_sessions)
+        if active_session_cnt > 0:
             return False, f"still have {active_session_cnt} active sessions."
 
         if not meta.manage:
@@ -63,7 +65,8 @@ class ServerKiller:
         min_life_to_live_in_sec = to_seconds(config.min_life_to_live)
         if min_life_to_live_in_sec <= 0:
             return True, f"min_life_to_live less or equal 0: {min_life_to_live_in_sec}."
-        if (ttl := min_life_to_live_in_sec - meta.live_sec) > 0:
+        ttl = min_life_to_live_in_sec - meta.live_sec
+        if ttl > 0:
             return False, f"still have {humanize_seconds(ttl)} to live(min_life_to_live={config.min_life_to_live})."
 
         # check whether it should be destroyed within a reasonable bill cycle.
@@ -71,7 +74,8 @@ class ServerKiller:
         safety_destroy_duration = max(unsafe_time, destroy_safe_time_in_sec)
         bill_time_unit_in_sec = to_seconds(config.bill_time_unit)
         cur_bill_live_time = meta.live_sec % bill_time_unit_in_sec
-        if (ttl := bill_time_unit_in_sec - cur_bill_live_time - safety_destroy_duration) > 0:
+        ttl = bill_time_unit_in_sec - cur_bill_live_time - safety_destroy_duration
+        if ttl > 0:
             return False, f"still have {humanize_seconds(ttl)} to live(bill_time_unit={config.bill_time_unit})."
 
         return True, "is about to enter the next billing cycle."

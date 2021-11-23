@@ -66,7 +66,8 @@ def to_seconds(time_str: str) -> int:
     """
     for unit, sec in UNIT_SEC_PAIRS.items():
         re_time_str = r"(\d+){unit}".format(unit=unit)
-        if matched := re.match(re_time_str, time_str):
+        matched = re.match(re_time_str, time_str)
+        if matched:
             return int(matched.group(1)) * sec
     raise TimeStrParseTypeException(f"Can not parse {time_str}")
 
@@ -82,7 +83,7 @@ def send_to_channel(channel: Channel, msg: str = "", prefix: str = "", suffix: s
     channel.send(f"{prefix or ''}{msg}{suffix or ''}".encode())
 
 
-def choose_option(channel: Channel, options: List[str], /, option_prompt: str = None, ask_prompt: str = None) -> int:
+def choose_option(channel: Channel, options: List[str], option_prompt: str = None, ask_prompt: str = None) -> int:
     """
     ask user to choose one option from channel
     """

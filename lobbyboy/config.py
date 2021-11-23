@@ -105,13 +105,18 @@ class LBConfig:
         servers_json = []
         try:
             with open(db_path, "r+") as f:
-                if content := f.read():
+                content = f.read()
+                if content:
                     servers_json = json.loads(content)
         except (FileNotFoundError, JSONDecodeError) as e:
             logger.error(f"Error when reading local db {str(db_path)}, {str(e)}")
             return OrderedDict()
         logger.debug(f"open server_json, find {len(servers_json)} available_servers: {servers_json}")
-        return OrderedDict({server.server_name: server for i in servers_json if (server := LBServerMeta(**i))})
+        d = OrderedDict()
+        for i in servers_json:
+            server = LBServerMeta(**i)
+            d[server.server_name] = server
+        return d
 
     @classmethod
     def update_local_servers(

@@ -64,7 +64,8 @@ class Server(paramiko.ServerInterface):
         accept_key = key_cls(data=base64.b64decode(key_str))
         k = hexlify(accept_key.get_fingerprint()).decode()
         logger.info(f"try to auth {user} with key {k}")
-        if success := key == accept_key:
+        success = key == accept_key
+        if success:
             logger.info(f"accept auth {user} with key {k}")
         return success
 

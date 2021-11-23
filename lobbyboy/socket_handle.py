@@ -93,7 +93,8 @@ class SocketHandlerThread(threading.Thread):
         # if has available servers, prompt login or create
         # if no, create, and redirect
         meta: LBServerMeta = self.choose_server()
-        if not (provider := self.providers.get(meta.provider_name)):
+        provider = self.providers.get(meta.provider_name)
+        if not provider:
             raise NoProviderException(f"not find provider for server {meta.server_name}")
 
         ssh_command_units = provider.ssh_server_command(meta)
@@ -211,7 +212,8 @@ class SocketHandlerThread(threading.Thread):
     def remove_server_session(transport: Transport, server_name: str):
         peer_name = transport.getpeername()
         with active_session_lock:
-            if sessions := active_session.get(server_name):
+            sessions = active_session.get(server_name)
+            if sessions:
                 active_session[server_name] = list(filter(lambda x: x.getpeername() != peer_name, sessions))
 
     def run(self):

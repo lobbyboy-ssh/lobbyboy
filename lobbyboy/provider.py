@@ -28,7 +28,7 @@ class BaseProvider(ABC):
         self.workspace: Path = workspace
 
     @staticmethod
-    def time_process_action(c: Channel, act: Callable, max_check: int = 20, interval: int = 3, /, **action_kws) -> bool:
+    def time_process_action(c: Channel, act: Callable, max_check: int = 20, interval: int = 3, **action_kws) -> bool:
         """
         Args:
            c: paramiko channel
@@ -45,7 +45,8 @@ class BaseProvider(ABC):
         try_times = 1
         while try_times <= max_check:
             send_to_channel(c, ".", suffix="")
-            if res := act(**action_kws):
+            res = act(**action_kws)
+            if res:
                 send_to_channel(c, f"OK({round(time.time() - start_at, 2)}s).")
                 return res
             time.sleep(interval)

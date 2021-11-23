@@ -72,19 +72,18 @@ load_module = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
 #    "sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs",
 #    "sfo1:s-1vcpu-1gb:fedora-33-x64",
 # ]
-# destroy_safe_time = '5m'
-# server_name_prefix = 'lobbyboy'
 
-favorite_droplets=[
-    "sgp1:s-1vcpu-1gb:ubuntu-21-04-x64",
-    "sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs",
-    "sfo1:s-1vcpu-1gb:fedora-33-x64",
-]
+# before the end of the current billing cycle, the safe time left for the destroy action can
+# prevent the delay of destroy, eg: network problems, etc.
+# destroy_safe_time = '5m'
+
+# set server name prefix
+# server_name_prefix = 'lobbyboy'
 
 [provider.vagrant]
 load_module = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
-# min_life_to_live = "1h"
-# bill_time_unit = "1h"
+min_life_to_live = "1h"
+bill_time_unit = "1h"
 vagrantfile="""
 Vagrant.configure("2") do |config|
   config.vm.define "{boxname}"
