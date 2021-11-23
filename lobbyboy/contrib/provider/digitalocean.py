@@ -32,6 +32,7 @@ class DigitalOceanProvider(BaseProvider):
         return False
 
     def create_server(self, channel: Channel) -> LBServerMeta:
+        region, size, image = self._ask_user_customize_server(channel)
         server_workspace = self._generate_server_workspace()
         # use directory name as server name
         server_name = os.path.basename(server_workspace)
@@ -42,7 +43,6 @@ class DigitalOceanProvider(BaseProvider):
         ssh_keys = self.collection_ssh_keys(save_path=server_workspace)
         logger.info(f"prepare ssh key pairs for server {server_name} done.")
 
-        region, size, image = self._ask_user_customize_server(channel)
         logger.info(
             f"going to create a new droplet in digitalocean... "
             f"server name={server_name}, region={region}, image={image}, size_slug={size}"
