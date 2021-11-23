@@ -5,7 +5,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, replace, field, fields, asdict
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, OrderedDict as typeOrderedDict
 
 import toml
 
@@ -98,7 +98,7 @@ class LBConfig:
         return self.data_dir.joinpath(self.servers_file)
 
     @classmethod
-    def load_local_servers(cls, db_path: Path) -> OrderedDict[str, LBServerMeta]:
+    def load_local_servers(cls, db_path: Path) -> typeOrderedDict[str, LBServerMeta]:
         """
         load from available_servers_db.json file, return result
         """

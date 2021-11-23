@@ -3,7 +3,7 @@ import re
 import logging
 import socket
 import threading
-from datetime import timedelta
+from datetime import timedelta, datetime, date
 from enum import Enum, unique
 from io import StringIO
 from pathlib import Path
@@ -44,6 +44,10 @@ def lb_dict_factory(d: Union[Dict, Tuple], ignore_fields: List[str] = None, igno
             continue
         if isinstance(v, Path):
             v = str(v)
+        if isinstance(v, datetime):
+            v = v.strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(v, date):
+            v = v.strftime("%Y-%m-%d")
         _d[k] = v
     return _d
 

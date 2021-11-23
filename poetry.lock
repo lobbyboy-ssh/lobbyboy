@@ -234,6 +234,17 @@ testing = ["coverage (<5)", "pytest (>=3.5,!=3.7.3)", "pytest-checkdocs (>=1.2.3
 "testing.libs" = ["demjson", "simplejson", "ujson", "yajl"]
 
 [[package]]
+name = "linode-api4"
+version = "5.2.1"
+description = "The official python SDK for Linode API v4"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+requests = "*"
+
+[[package]]
 name = "mccabe"
 version = "0.6.1"
 description = "McCabe checker, plugin for flake8"
@@ -520,7 +531,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "ab2c3f8ebe57886d486122ee04c449d12f4d429ad7b45c57e4c51c2ac5e60047"
+content-hash = "ae131f8be42175669ac4742ea6a0620c8a155c619d736cf1467d54199301d444"
 
 [metadata.files]
 atomicwrites = [
@@ -686,6 +697,10 @@ iniconfig = [
 jsonpickle = [
     {file = "jsonpickle-2.0.0-py2.py3-none-any.whl", hash = "sha256:c1010994c1fbda87a48f8a56698605b598cb0fc6bb7e7927559fc1100e69aeac"},
     {file = "jsonpickle-2.0.0.tar.gz", hash = "sha256:0be49cba80ea6f87a168aa8168d717d00c6ca07ba83df3cec32d3b30bfe6fb9a"},
+]
+linode-api4 = [
+    {file = "linode_api4-5.2.1-py3-none-any.whl", hash = "sha256:9e083abe1568a5162b83082240b654cf70859fba97e710eef043567a1b749d11"},
+    {file = "linode_api4-5.2.1.tar.gz", hash = "sha256:899bc9946cf4f99b72bd8a9db138db0b1ba63200c6615128ef367655c733e7cd"},
 ]
 mccabe = [
     {file = "mccabe-0.6.1-py2.py3-none-any.whl", hash = "sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42"},

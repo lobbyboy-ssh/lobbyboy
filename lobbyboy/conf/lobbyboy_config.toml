@@ -95,3 +95,7 @@ Vagrant.configure("2") do |config|
     end
 end
 """
+
+[provider.linode]
+load_module = "lobbyboy.contrib.provider.linode::LinodeProvider"
+# api_token = ""
