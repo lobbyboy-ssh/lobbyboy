@@ -1,139 +1,90 @@
-import time
-import json
-import pathlib
 import logging
+import time
+from pathlib import Path
+from typing import Dict, OrderedDict, Tuple
 
+from paramiko import Channel
 
-from .utils import parse_time_config, load_server_db
+from lobbyboy.provider import BaseProvider
+from lobbyboy.utils import available_server_db_lock, humanize_seconds, active_session, to_seconds
+from lobbyboy.config import LBConfigProvider, LBServerMeta, LBConfig
 
-FIVE_MINUTES = 5 * 60
 logger = logging.getLogger(__name__)
 
 
-def killer(config, active_sessions, available_server_db_lock, providers):
-    interval_seconds = parse_time_config(config["destroy_interval"])
-    db_path = pathlib.Path(config["data_dir"]) / "available_servers.json"
-    while 1:
-        logger.info("killer start a new round...")
-        check_all_live_servers(
-            str(db_path), active_sessions, config, available_server_db_lock, providers
-        )
-        time.sleep(interval_seconds)
+class ServerKiller:
+    def __init__(self, watched_providers: Dict[str, BaseProvider], servers_db_path: Path):
+        self.servers_db_path: Path = servers_db_path
+        self.watched_providers: Dict[str, BaseProvider] = watched_providers
 
+    def patrol(self, cycle_sec: int = 1 * 60):
+        while 1:
+            logger.info(f"killer start a new {cycle_sec} seconds round...")
+            self.check_all_live_servers()
+            time.sleep(cycle_sec)
 
-def check_all_live_servers(
-    db_path: str,
-    active_sessions: dict,
-    config: dict,
-    available_server_db_lock,
-    providers,
-):
-    servers = load_server_db(db_path)
-    for server in servers:
-        serverid = server["server_id"]
-        need_to_be_destroy, reason = server_need_destroy(
-            active_sessions.get(serverid, []), server, config
-        )
-        logger.info(
-            "{} need to be destroyed? {}, reson: {}".format(
-                serverid, need_to_be_destroy, reason
-            )
-        )
-        if need_to_be_destroy:
-            provider_name = server["provider"]
-            provider = providers[provider_name]
-            destroy_server(provider, server, db_path, available_server_db_lock, None)
+    def check_all_live_servers(self):
+        metas: OrderedDict[str, LBServerMeta] = LBConfig.load_local_servers(self.servers_db_path)
 
+        for server_name, meta in metas.items():
+            provider: BaseProvider
+            if not (provider := self.watched_providers.get(meta.provider_name)):
+                logger.error(f"can't find provider of server {meta.server_name}, destroy check failed.")
+                raise Exception
 
-def server_need_destroy(active_sessions: list, serverinfo: dict, config: dict):
-    """
-    check if a server need to be destroyed.
+            need_to_be_destroy, reason = self.need_destroy(provider, meta)
+            logger.info(f"{server_name} need to be destroyed? {need_to_be_destroy}, reason: {reason}.")
+            if need_to_be_destroy:
+                self.destroy(provider, meta)
 
-    Args:
-        active_session: list, track current active session on sever
-        serverinfo: dict, example:
-            {'server_id': 'lobbyboy-29',
-             'server_host': '127.0.0.1',
-             'provider': 'vagrant',
-             'created_timestamp': 1635175057.377654}
-    Returns:
-        tuple, (need_to_be_destroy: bool, reason: str)
-    """
-    active_session_count = len(active_sessions)
-    if active_session_count:
-        return False, "still have {} active sessions".format(active_session_count)
-    provider_name = serverinfo["provider"]
-    born_time = serverinfo["created_timestamp"]
-    provider_configs = config["provider"]
-    pconfig = provider_configs[provider_name]
+    @classmethod
+    def need_destroy(cls, provider: BaseProvider, meta: LBServerMeta, unsafe_time: int = 5 * 60) -> Tuple[bool, str]:
+        """
+        check if a provider's server need to be destroyed or not.
 
-    lived_time = time.time() - born_time
-    min_life_to_live_seconds = parse_time_config(pconfig["min_life_to_live"])
-    if min_life_to_live_seconds == 0:
-        return True, "min_life_to_live set to 0"
+        Args:
+            provider: provider, provider info
+            meta: LBServerMeta, server meta info
+            unsafe_time: int, end of the bill cycle is less than the this time, the destroy is unsafe.
 
-    bill_time_unit = parse_time_config(pconfig["bill_time_unit"])
-    destroy_spare_seconds = max(
-        [parse_time_config(config["destroy_interval"]), FIVE_MINUTES]
-    )
-    bill_unit_left_time = (
-        bill_time_unit - destroy_spare_seconds - (lived_time % bill_time_unit)
-    )
+        Returns:
+            tuple, (need_to_be_destroy: bool, reason: str)
+        """
+        # check whether there is an activity session first
+        active_sessions = active_session.get(meta.server_name, [])
+        if active_session_cnt := len(active_sessions):
+            return False, f"still have {active_session_cnt} active sessions."
 
-    min_live_left_seconds = min_life_to_live_seconds - lived_time
-    if min_live_left_seconds > 0:
-        return False, "still have {} to live(min_life_to_live={}).".format(
-            humanize_seconds(min_live_left_seconds), pconfig["min_life_to_live"]
-        )
-    if bill_unit_left_time > 0:
-        return False, "still have {} to live(bill_time_unit={}).".format(
-            humanize_seconds(bill_unit_left_time),
-            pconfig["bill_time_unit"],
-        )
-    return True, "is about to enter the next billing cycle"
+        if not meta.manage:
+            return False, f"server {meta.server_name} has flag not manage by me."
 
+        config: LBConfigProvider = provider.provider_config
+        # check whether the minimum life cycle is reached
+        min_life_to_live_in_sec = to_seconds(config.min_life_to_live)
+        if min_life_to_live_in_sec <= 0:
+            return True, f"min_life_to_live less or equal 0: {min_life_to_live_in_sec}."
+        if (ttl := min_life_to_live_in_sec - meta.live_sec) > 0:
+            return False, f"still have {humanize_seconds(ttl)} to live(min_life_to_live={config.min_life_to_live})."
 
-def humanize_seconds(seconds: int):
-    if seconds <= 60:
-        return "{} seconds".format(str(seconds))
+        # check whether it should be destroyed within a reasonable bill cycle.
+        destroy_safe_time_in_sec = to_seconds(config.destroy_safe_time) if config.destroy_safe_time else 0
+        safety_destroy_duration = max(unsafe_time, destroy_safe_time_in_sec)
+        bill_time_unit_in_sec = to_seconds(config.bill_time_unit)
+        cur_bill_live_time = meta.live_sec % bill_time_unit_in_sec
+        if (ttl := bill_time_unit_in_sec - cur_bill_live_time - safety_destroy_duration) > 0:
+            return False, f"still have {humanize_seconds(ttl)} to live(bill_time_unit={config.bill_time_unit})."
 
-    minutes = seconds // 60
-    if minutes <= 60:
-        return "{} minutes".format(str(minutes))
+        return True, "is about to enter the next billing cycle."
 
-    hours = minutes // 60
-    if hours <= 24:
-        return "{} hours".format(str(hours))
-
-    days = hours // 24
-    return "{} days".format(str(days))
-
-
-def destroy_server(
-    provider,
-    serverinfo,
-    available_server_db_path,
-    available_server_db_lock,
-    channel=None,
-):
-    """
-    Args:
-        provider: provider instance, object
-        serverinfo: server data dict
-    """
-    provider.destroy_server(serverinfo["server_id"], serverinfo["server_host"], channel)
-    delete_from_server_db(
-        available_server_db_lock,
-        available_server_db_path,
-        serverinfo["server_id"],
-    )
-
-
-def delete_from_server_db(available_server_db_lock, available_server_db_path, serverid):
-    with available_server_db_lock:
-        servers = load_server_db(available_server_db_path)
-        new_servers = [s for s in servers if s["server_id"] != serverid]
-        json.dump(
-            new_servers,
-            open(available_server_db_path, "w+"),
-        )
+    def destroy(self, provider: BaseProvider, meta: LBServerMeta, channel: Channel = None):
+        """
+        Args:
+            provider: provider instance, object
+            meta: server data dict
+            channel: paramiko.Transport, optional, if not None, will send destroy message to this channel
+        """
+        if not meta.manage:
+            raise Exception(f"destroy failed, provider {provider.name} server {meta.server_name} not manage by me!")
+        provider.destroy_server(meta, channel)
+        with available_server_db_lock:
+            LBConfig.update_local_servers(self.servers_db_path, deleted=[meta])

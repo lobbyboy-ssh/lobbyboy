@@ -1,3 +1,7 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
 name = "lobbyboy"
 version = "0.2.4"
@@ -6,8 +10,8 @@ authors = ["laixintao <laixintaoo@gmail.com>"]
 license = "GNU"
 
 [tool.poetry.scripts]
-lobbyboy-server = 'lobbyboy.server:main'
-lobbyboy-config-example = 'lobbyboy.utils:print_exmaple_config'
+lobbyboy-server = 'lobbyboy.main:main'
+lobbyboy-config-example = 'lobbyboy.scripts:print_example_config'
 
 [tool.poetry.dependencies]
 python = "^3.7"
@@ -21,6 +25,6 @@ bumpversion = "^0.6.0"
 pytest = "^6.2.5"
 flake8 = "^4.0.1"
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.black]
+target-version = ["py37"]
+line-length = 120

@@ -1,105 +1,83 @@
 import logging
 import os
 import subprocess
-import threading
-from lobbyboy.provider import BaseProvider
-from lobbyboy.exceptions import ProviderException
+from pathlib import Path
 
+from paramiko import Channel
+
+from lobbyboy.config import LBConfigProvider, LBServerMeta
+from lobbyboy.exceptions import VagrantProviderException
+from lobbyboy.provider import BaseProvider
+from lobbyboy.utils import send_to_channel
 
 logger = logging.getLogger(__name__)
 
 
-class VagrantProviderException(ProviderException):
-    pass
-
-
 class VagrantProvider(BaseProvider):
-    """
-    This provider will provision new VM via local vagrant daemon.
-    It won't create a real VPS, this is just a provider implementation ref.
-    """
+    def __init__(self, name: str, config: LBConfigProvider, workspace: Path):
+        super().__init__(name, config, workspace)
 
-    def get_unused_vm_name(self):
-        for index in range(1, 10000):
-            vm_name = "lobbyboy-{}".format(index)
-            if not (self.data_path / vm_name).exists():
-                return vm_name
-        logger.error(
-            "vagrant can not found a available vm name, all id from 1 to 9999 are taken, please clean out {}".format(
-                self.data_path
-            )
+    def create_server(self, channel: Channel) -> LBServerMeta:
+        server_workspace = self._generate_server_workspace()
+        # use directory name as server name
+        server_name = os.path.basename(server_workspace)
+        logger.info(f"create {self.name} server {server_name} workspace: {server_workspace}.")
+        send_to_channel(channel, f"Generate server {server_name} workspace {server_workspace} done.")
+
+        with open(server_workspace.joinpath("Vagrantfile"), "w+") as f:
+            f.write(self.provider_config.vagrantfile.format(boxname=server_workspace))
+
+        self.time_process_action(channel, self._run_vagrant, command_exec=["vagrant", "up"], cwd=str(server_workspace))
+        send_to_channel(channel, f"New server {server_name} created!")
+
+        send_to_channel(channel, "Waiting for server to boot...")
+        self.time_process_action(
+            channel,
+            self._run_vagrant,
+            command_exec=["vagrant", "ssh-config", server_name],
+            cwd=str(server_workspace),
+            stdout=open(server_workspace / "ssh_config", "wb+"),
         )
-        raise Exception(
-            "Can not create more VMs! Please clean out {}".format(self.data_path)
+        send_to_channel(channel, f"Server {server_name} has boot successfully!")
+
+        return LBServerMeta(
+            provider_name=self.name,
+            server_name=server_name,
+            workspace=server_workspace,
+            server_host="127.0.0.1",
         )
 
-    def new_server(self, chan):
-        vm_name = self.get_unused_vm_name()
-        vm_path = self.data_path / vm_name
-        os.mkdir(str(vm_path))
-        with open(str(vm_path / "Vagrantfile"), "w+") as vfile:
-            file_content = self.provider_config["vagrantfile"].format(boxname=vm_name)
-            vfile.write(file_content)
+    def destroy_server(self, meta: LBServerMeta, channel: Channel = None) -> bool:
+        vid = self._get_vagrant_machine_id(meta.server_name)
+        return_code, _, _ = self._run_vagrant(["vagrant", "destroy", "-f", vid])
+        success = return_code == 0
+        if not success:
+            raise VagrantProviderException("Error when destroy {}".format(vid))
+        return success
 
-        over_event = threading.Event()
-        self.send_timepass(chan, over_event)
-        self._run_vagrant(["vagrant", "up"], cwd=str(vm_path))
-        ssh_config_file = open(vm_path / "ssh_config", "wb+")
-        self._run_vagrant(
-            ["vagrant", "ssh-config", vm_name], cwd=str(vm_path), stdout=ssh_config_file
-        )
-        over_event.set()
-        chan.send("New server {} created!\r\n".format(vm_name).encode())
-        return vm_name, "127.0.0.1"
-
-    def _run_vagrant(self, command_exec: list, cwd=None, stdout=None):
-        logger.info("start to run command: {}".format(" ".join(command_exec)))
+    @staticmethod
+    def _run_vagrant(command_exec: list, cwd=None, stdout=None):
+        cmd = " ".join(command_exec)
+        logger.info(f"start to run command: {cmd}")
         capture_output = stdout is None
-        vagrant_process = subprocess.run(
-            command_exec, cwd=cwd, capture_output=capture_output, stdout=stdout
-        )
+        vagrant_process = subprocess.run(command_exec, cwd=cwd, capture_output=capture_output, stdout=stdout)
         if vagrant_process.returncode == 0:
             logger.info(
-                "vagrant_command success, command={} stdout={}, stderr={}".format(
-                    " ".join(command_exec),
-                    vagrant_process.stdout,
-                    vagrant_process.stderr,
-                )
+                f"vagrant_command SUCCESS, command={cmd} "
+                f"stdout={vagrant_process.stdout}, stderr={vagrant_process.stderr}"
             )
-            return (
-                vagrant_process.returncode,
-                vagrant_process.stdout,
-                vagrant_process.stderr,
-            )
+            return vagrant_process.returncode, vagrant_process.stdout, vagrant_process.stderr
         logger.error(
-            "vagrant_command FAILED! command={} returncode: {}, stdout: {}, stdout: {}".format(
-                " ".join(command_exec),
-                vagrant_process.returncode,
-                vagrant_process.stdout,
-                vagrant_process.stderr,
-            )
+            f"vagrant_command FAILED! command={cmd} return_code: {vagrant_process.returncode}, "
+            f"stdout: {vagrant_process.stdout}, stdout: {vagrant_process.stderr}"
         )
         raise Exception
 
-    def ssh_server_command(self, server_id, server_ip):
-        vm_path = self.data_path / server_id / "ssh_config"
-
-        return ["ssh", "-F", str(vm_path), server_id]
-
-    def destroy_server(self, server_id, server_ip, channel):
-        vid = self._get_vagrant_machine_id(server_id)
-        returncode, _, _ = self._run_vagrant(["vagrant", "destroy", "-f", vid])
-        if returncode != 0:
-            raise VagrantProviderException("Error when destroy {}".format(vid))
-
-    def _get_vagrant_machine_id(self, server_id):
+    def _get_vagrant_machine_id(self, server_name):
         _, stdout, _ = self._run_vagrant(["vagrant", "global-status"])
-        stdout = stdout.decode()
-        for line in stdout.split("\n"):
-            if server_id in line:
+        for line in stdout.decode().split("\n"):
+            if server_name in line:
                 v_server_id = line.split(" ")[0]
-                logger.debug(
-                    "Find server_id={} by server name {}".format(v_server_id, server_id)
-                )
+                logger.debug(f"Find server_id={v_server_id} by server name {server_name}")
                 return v_server_id
-        raise VagrantProviderException("{} not found in Vagrant!".format(server_id))
+        raise VagrantProviderException(f"{server_name} not found in Vagrant!")

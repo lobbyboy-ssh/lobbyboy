@@ -1,89 +1,147 @@
+import json
+import string
+from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
 import logging
 import time
-import threading
+from typing import List, Dict, Callable
 
-from lobbyboy.utils import choose_option
+from paramiko.channel import Channel
+
+from lobbyboy.exceptions import NoAvailableNameException
+from lobbyboy.utils import (
+    confirm_ssh_key_pair,
+    send_to_channel,
+    KeyTypeSupport,
+)
+from lobbyboy.config import LBConfigProvider, LBServerMeta
 
 logger = logging.getLogger(__name__)
+SERVER_FILE = "server.json"
 
 
-class BaseProvider:
-    def __init__(self, provider_name, config, provider_config, data_path):
-        self.config = config
-        self.provider_name = provider_name
-        self.provider_config = provider_config
-        self.data_path = Path(data_path)
+class BaseProvider(ABC):
+    def __init__(self, provider_name: str, config: LBConfigProvider, workspace: Path):
+        self.name: str = provider_name
+        self.provider_config: LBConfigProvider = config
+        self.workspace: Path = workspace
 
-    def new_server(self, channel):
+    @staticmethod
+    def time_process_action(c: Channel, act: Callable, max_check: int = 20, interval: int = 3, /, **action_kws) -> bool:
+        """
+        Args:
+           c: paramiko channel
+           act: execute with time process, need return bool
+           max_check: max check times
+           interval: check interval in seconds
+
+        Returns:
+            bool: bool result before end of check time
+        """
+        action_name = " ".join(act.__name__.split("_"))
+        send_to_channel(c, f"Check {action_name}", suffix="")
+        start_at = time.time()
+        try_times = 1
+        while try_times <= max_check:
+            send_to_channel(c, ".", suffix="")
+            if res := act(**action_kws):
+                send_to_channel(c, f"OK({round(time.time() - start_at, 2)}s).")
+                return res
+            time.sleep(interval)
+            try_times += 1
+        send_to_channel(c, "UNKNOWN state, please check it manually.")
+        return False
+
+    @staticmethod
+    def save_raw_server(server_obj: Dict, server_workspace: Path) -> Path:
+        _path = server_workspace.joinpath(SERVER_FILE)
+        with open(_path, "w+") as f:
+            logger.debug(f"write new server data to {_path}")
+            json.dump(server_obj, f)
+        return _path
+
+    @staticmethod
+    def load_raw_server(server_workspace: Path):
+        _path = server_workspace.joinpath(SERVER_FILE)
+        with open(_path, "r+") as f:
+            logger.debug(f"load server data from {_path}")
+            return json.load(f)
+
+    def _generate_server_workspace(self):
+        server_name = datetime.now().strftime("%Y-%m-%d-%H%M")
+        if self.provider_config.server_name_prefix:
+            server_name = f"{self.provider_config.server_name_prefix}-{server_name}"
+
+        for suffix in ["", *string.ascii_lowercase]:
+            _server_name = f"{server_name}{suffix}"
+            server_workspace = self.workspace.joinpath(_server_name)
+            if not server_workspace.exists():
+                server_workspace.mkdir(parents=True)
+                return server_workspace
+        raise NoAvailableNameException(f"{self.name}'s server {server_name}[a-z] already exist!")
+
+    @abstractmethod
+    def create_server(self, channel: Channel) -> LBServerMeta:
         """
         Args:
             channel: paramiko channel
 
         Returns:
-            created_server_id: unique id from provision
-            created_server_host: server's ip or domain address
+            LBServerMeta: server meta info
         """
-        pass
+        ...
 
-    def destroy_server(self, server_id, server_ip, channel):
+    @abstractmethod
+    def destroy_server(self, meta: LBServerMeta, channel: Channel = None) -> bool:
         """
         Args:
+            meta: LBServerMeta, we use this to locate one server then destroy it.
             channel: Note that the channel can be None.
                      If called from server_killer, channel will be None.
                      if called when user logout from server, channel is active.
-        """
-        pass
 
-    def ssh_server_command(self, server_id, server_ip):
+        Returns:
+            bool: True if destroy successfully, False if not.
+        """
+        ...
+
+    def collection_ssh_keys(self, generate: bool = True, save_path: Path = None) -> List[str]:
+        ssh_keys = self.provider_config.extra_ssh_keys[::] or []
+        if generate:
+            _, pub_key = confirm_ssh_key_pair(save_path=save_path or self.workspace)
+            ssh_keys.append(pub_key)
+        return ssh_keys
+
+    def default_private_key_path(self, workspace: Path = None, key_type: KeyTypeSupport = KeyTypeSupport.RSA) -> Path:
+        workspace = workspace or self.workspace
+        return workspace.joinpath(f".ssh/id_{key_type.key.lower()}")
+
+    def ssh_server_command(self, meta: LBServerMeta, pri_key_path: Path = None) -> List[str]:
         """
         Args:
-           server_id: the server ssh to, which is returned by you from ``new_server``
-           server_ip: ip or domain name.
+           meta: LBServerMeta
+           pri_key_path: path to private key
+
         Returns:
-            list: a command in list format, for later to run exec.
+            str: ssh command to connect to provider's server.
         """
-        pass
+        _pri_key_path = pri_key_path or self.default_private_key_path(meta.workspace)
+        command = [
+            "ssh",
+            "-i",
+            str(_pri_key_path),
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-p",
+            str(meta.server_port),
+            "-l",
+            meta.server_user,
+            *meta.ssh_extra_args,
+            meta.server_host,
+        ]
+        logger.info(f"returning ssh command: {command}")
+        return command
 
     def get_bill(self):
-        pass
-
-    def send_timepass(self, chan, stop_event):
-        start = time.time()
-
-        def _print_time_elaspe():
-            while not stop_event.is_set():
-                current = time.time()
-                chan.send(
-                    "\rCreating new server... ({:.1f}s)".format(
-                        current - start
-                    ).encode()
-                )
-            chan.send(b"\r\n")
-
-        t = threading.Thread(target=_print_time_elaspe)
-        t.start()
-
-    def choose_option(self, ask_prompt, options, channel):
-        """
-        Utils function.
-        Give the user a list of choices, and return the user choosed one.
-
-        Args:
-            ask_prompt: str, a prompt to tell user what they are choosing
-            options: list, a list of string
-            channel: the channel to send and read user input
-
-        Returns:
-            string: user choosed option (in options)
-            int: user input number
-
-        Raises:
-            lobbyboy.exceptions.UserCancelException: User press Ctrl-C to cancel the input
-        """
-        logger.info(
-            "ask user to choose from {}, propmpt: {}".format(options, ask_prompt)
-        )
-        result = choose_option(ask_prompt, options, channel)
-        logger.info("user choose reuslt: {}".format(result))
-        return result
+        ...
