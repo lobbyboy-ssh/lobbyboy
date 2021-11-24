@@ -27,8 +27,7 @@ class BaseProvider(ABC):
         self.provider_config: LBConfigProvider = config
         self.workspace: Path = workspace
 
-    @property
-    def default_server_name(self):
+    def generate_default_server_name(self):
         server_name = datetime.now().strftime("%Y-%m-%d-%H%M")
         if self.provider_config.server_name_prefix:
             server_name = f"{self.provider_config.server_name_prefix}-{server_name}"

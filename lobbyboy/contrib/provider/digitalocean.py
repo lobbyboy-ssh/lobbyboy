@@ -33,7 +33,7 @@ class DigitalOceanProvider(BaseProvider):
 
     def create_server(self, channel: Channel) -> LBServerMeta:
         region, size, image = self._ask_user_customize_server(channel)
-        server_name = self.default_server_name
+        server_name = self.generate_default_server_name()
         server_workspace = self.get_server_workspace(server_name)
         server_workspace.mkdir(exist_ok=True, parents=True)
 
