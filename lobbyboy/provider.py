@@ -28,30 +28,32 @@ class BaseProvider(ABC):
         self.workspace: Path = workspace
 
     @staticmethod
-    def time_process_action(c: Channel, act: Callable, max_check: int = 20, interval: int = 3, **action_kws) -> bool:
+    def time_process_action(
+        channel: Channel, action: Callable, max_check: int = 20, interval: int = 3, **action_kws
+    ) -> bool:
         """
         Args:
-           c: paramiko channel
-           act: execute with time process, need return bool
+           channel: paramiko channel
+           action: execute with time process, need return bool
            max_check: max check times
            interval: check interval in seconds
 
         Returns:
             bool: bool result before end of check time
         """
-        action_name = " ".join(act.__name__.split("_"))
-        send_to_channel(c, f"Check {action_name}", suffix="")
+        action_name = " ".join(action.__name__.split("_"))
+        send_to_channel(channel, f"Check {action_name}", suffix="")
         start_at = time.time()
         try_times = 1
         while try_times <= max_check:
-            send_to_channel(c, ".", suffix="")
-            res = act(**action_kws)
+            send_to_channel(channel, ".", suffix="")
+            res = action(**action_kws)
             if res:
-                send_to_channel(c, f"OK({round(time.time() - start_at, 2)}s).")
+                send_to_channel(channel, f"OK({round(time.time() - start_at, 2)}s).")
                 return res
             time.sleep(interval)
             try_times += 1
-        send_to_channel(c, "UNKNOWN state, please check it manually.")
+        send_to_channel(channel, "UNKNOWN state, please check it manually.")
         return False
 
     @staticmethod

@@ -53,25 +53,27 @@ class LinodeProvider(BaseProvider):
         self.time_process_action(channel, self.linode_is_up, interval=5, node=linode_instance)
         return self.prepare_after_server_created(channel, linode_instance, server_workspace, server_name)
 
-    def prepare_after_server_created(self, c: Channel, d: Instance, workspace: Path, server_name: str) -> LBServerMeta:
+    def prepare_after_server_created(
+        self, channel: Channel, instance: Instance, workspace: Path, server_name: str
+    ) -> LBServerMeta:
         # todo: support use startup script after server created
-        send_to_channel(c, f"New server {server_name} (IP: {d.ipv4}) created!")
+        send_to_channel(channel, f"New server {server_name} (IP: {instance.ipv4}) created!")
 
         # save server info to local first
-        instance_info = d._serialize()  # noqa
-        instance_info["id"] = d.id
+        instance_info = instance._serialize()  # noqa
+        instance_info["id"] = instance.id
         self.save_raw_server(instance_info, workspace)  # noqa
 
         # wait for server to startup(check port is alive or not)
-        send_to_channel(c, "Waiting for server to boot...")
-        self.time_process_action(c, port_is_open, ip=d.ipv4[0])
-        send_to_channel(c, f"Server {server_name} has boot successfully!")
+        send_to_channel(channel, "Waiting for server to boot...")
+        self.time_process_action(channel, port_is_open, ip=instance.ipv4[0])
+        send_to_channel(channel, f"Server {server_name} has boot successfully!")
 
         return LBServerMeta(
             provider_name=self.name,
             server_name=server_name,
             workspace=workspace,
-            server_host=d.ipv4[0],
+            server_host=instance.ipv4[0],
         )
 
     def _ask_user_customize_server(self, channel: Channel) -> Tuple[str, str, str]:

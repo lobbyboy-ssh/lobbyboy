@@ -60,26 +60,30 @@ class DigitalOceanProvider(BaseProvider):
         self.time_process_action(channel, self.droplet_is_up, uninitialized_droplet=droplet)
         return self.prepare_after_server_created(channel, droplet, server_workspace, server_name)
 
-    def prepare_after_server_created(self, c: Channel, d: Droplet, workspace: Path, server_name: str) -> LBServerMeta:
+    def prepare_after_server_created(
+        self, channel: Channel, droplet: Droplet, workspace: Path, server_name: str
+    ) -> LBServerMeta:
         # todo: support use startup script after server created
         # load full information from digitalocean before use this droplet to other operations
-        d.load()
-        send_to_channel(c, f"New server {server_name} (IP: {d.ip_address}) created!")
+        droplet.load()
+        send_to_channel(channel, f"New server {server_name} (IP: {droplet.ip_address}) created!")
 
         # save server info to local first
-        droplet_meta = lb_dict_factory(d.__dict__, ignore_fields=["tokens"], ignore_rules=lambda x: x.startswith("_"))
+        droplet_meta = lb_dict_factory(
+            droplet.__dict__, ignore_fields=["tokens"], ignore_rules=lambda x: x.startswith("_")
+        )
         self.save_raw_server(droplet_meta, workspace)
 
         # wait for server to startup(check port is alive or not)
-        send_to_channel(c, "Waiting for server to boot...")
-        self.time_process_action(c, port_is_open, ip=d.ip_address)
-        send_to_channel(c, f"Server {server_name} has boot successfully!")
+        send_to_channel(channel, "Waiting for server to boot...")
+        self.time_process_action(channel, port_is_open, ip=droplet.ip_address)
+        send_to_channel(channel, f"Server {server_name} has boot successfully!")
 
         return LBServerMeta(
             provider_name=self.name,
             server_name=server_name,
             workspace=workspace,
-            server_host=d.ip_address,
+            server_host=droplet.ip_address,
         )
 
     def _ask_user_customize_server(self, channel: Channel) -> Tuple[str, str, str]:
