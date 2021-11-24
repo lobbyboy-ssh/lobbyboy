@@ -1,15 +1,15 @@
 data_dir = "./dev_datadir"
-# listen_port = 12200
-# listen_ip = "0.0.0.0"
-# min_destroy_interval = "1m"
-# servers_file = "available_servers_db.json"
+listen_port = 12200
+listen_ip = "0.0.0.0"
+min_destroy_interval = "1m"
+servers_file = "available_servers_db.json"
 
 # CRITICAL
 # ERROR
 # WARNING
 # INFO
 # DEBUG
-# log_level = "DEBUG"
+log_level = "DEBUG"
 
 [user.Gustave]
 # client pub keys for ssh to lobbyboy server.
@@ -22,6 +22,14 @@ password = false
 
 [provider.digitalocean]
 load_module = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
+
+# set server name prefix, if not set, will use server name directly, if set, connect prefix and server name with '-'
+# eg:
+#     server name: myServer
+#           server_name_prefix: lobbyboy -> lobbyboy-myServer
+#           not set server_name_prefix   -> myServer
+server_name_prefix = 'lobbyboy'
+
 # lobbyboy will destroy the server for you.
 # when:
 # 1. there is no active session(if you ssh to that server bot throughing
@@ -43,8 +51,15 @@ load_module = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
 # - 55m for 55 minutes
 # - 1h for one hour
 # - 2d for 2 days
-# min_life_to_live = "0s"
-# bill_time_unit = "0s"
+min_life_to_live = "0s"
+
+# some cloud service providers support hourly/dayily/monthly/... charging
+# you can set this as you bill cycle so that lobbyboy knows when to check or destroy the server.
+bill_time_unit = "0s"
+
+# before the end of the current billing cycle, the safe time left for the destroy action can
+# prevent the delay of destroy, eg: network problems, etc.
+destroy_safe_time = '5m'
 
 # Will try to read from environment variables first, ``DIGITALOCEAN_TOKEN``
 # if empty, then use this config
@@ -55,7 +70,7 @@ load_module = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
 # if set to private_key(string), will use this one.
 # a public_key will be generated from private_key, and add to new created
 # servers' ~/.ssh/authorized_keys
-# private_key="auto"
+private_key="auto"
 
 # ssh keys, added when create a new server
 # it is a list, every item is a key, each one can be:
@@ -67,23 +82,18 @@ load_module = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
 
 # quick choose a favorite droplet tempalte to create
 # format: regions-slug:size-slug:image-slug
-# favorite_droplets = [
-#    "sgp1:s-1vcpu-1gb:ubuntu-21-04-x64",
-#    "sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs",
-#    "sfo1:s-1vcpu-1gb:fedora-33-x64",
-# ]
-
-# before the end of the current billing cycle, the safe time left for the destroy action can
-# prevent the delay of destroy, eg: network problems, etc.
-# destroy_safe_time = '5m'
-
-# set server name prefix
-# server_name_prefix = 'lobbyboy'
+favorite_instance_types = [
+   "sgp1:s-1vcpu-1gb:ubuntu-21-04-x64",
+   "sgp1:s-1vcpu-1gb:freebsd-12-x64-zfs",
+   "sfo1:s-1vcpu-1gb:fedora-33-x64",
+]
 
 [provider.vagrant]
 load_module = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
 min_life_to_live = "1h"
 bill_time_unit = "1h"
+destroy_safe_time = '5m'
+private_key="auto"
 vagrantfile="""
 Vagrant.configure("2") do |config|
   config.vm.define "{boxname}"
@@ -98,6 +108,19 @@ end
 
 [provider.linode]
 load_module = "lobbyboy.contrib.provider.linode::LinodeProvider"
+min_life_to_live = "1h"
+bill_time_unit = "1h"
+destroy_safe_time = '5m'
+private_key="auto"
+
 # Will try to read from environment variables first, ``LINODE_TOKEN``
 # if empty, then use this config
 # api_token = ""
+
+# format: regions.id:type.id:image.id
+# see [Linode Region](https://www.linode.com/docs/api/regions/#regions-list)
+#     [Linode Type](https://www.linode.com/docs/api/linode-types/#types-list)
+#     [Linode Image](https://www.linode.com/docs/api/images/#images-list)
+favorite_instance_types = [
+   "ap-south:g6-nanode-1:linode/centos7",
+]

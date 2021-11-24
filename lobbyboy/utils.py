@@ -7,7 +7,7 @@ from datetime import timedelta, datetime, date
 from enum import Enum, unique
 from io import StringIO
 from pathlib import Path
-from typing import List, Dict, Tuple, Callable, Union
+from typing import List, Dict, Tuple, Callable, Union, Any, Type
 
 import paramiko
 from paramiko.channel import Channel
@@ -85,6 +85,26 @@ def send_to_channel(channel: Channel, msg: str = "", prefix: str = "", suffix: s
     if isinstance(msg, bytes):
         msg = msg.decode()
     channel.send(f"{prefix or ''}{msg}{suffix or ''}".encode())
+
+
+def confirm_dc_type(value: Any, should_be: Type):
+    """
+    confirm that the value is of the correct type during dataclass conversion, try converting it if it is not
+    consider replacing it with [dacite](https://github.com/konradhalas/dacite/)
+
+    Args:
+        value: the value that we want to check
+        should_be: the value type we expect or convert to
+
+    Returns:
+        value: the value that was passed in, converted if needed
+    """
+    if isinstance(value, should_be):
+        return value
+    elif isinstance(value, dict):
+        return should_be(**value)
+    logger.error(f"{should_be.__name__} unable to confirm type of {value}, type: {type(value)}")
+    return value
 
 
 def choose_option(channel: Channel, options: List[str], option_prompt: str = None, ask_prompt: str = None) -> int:

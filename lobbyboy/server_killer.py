@@ -39,14 +39,13 @@ class ServerKiller:
                 self.destroy(provider, meta)
 
     @classmethod
-    def need_destroy(cls, provider: BaseProvider, meta: LBServerMeta, unsafe_time: int = 5 * 60) -> Tuple[bool, str]:
+    def need_destroy(cls, provider: BaseProvider, meta: LBServerMeta) -> Tuple[bool, str]:
         """
         check if a provider's server need to be destroyed or not.
 
         Args:
             provider: provider, provider info
             meta: LBServerMeta, server meta info
-            unsafe_time: int, end of the bill cycle is less than the this time, the destroy is unsafe.
 
         Returns:
             tuple, (need_to_be_destroy: bool, reason: str)
@@ -70,11 +69,10 @@ class ServerKiller:
             return False, f"still have {humanize_seconds(ttl)} to live(min_life_to_live={config.min_life_to_live})."
 
         # check whether it should be destroyed within a reasonable bill cycle.
-        destroy_safe_time_in_sec = to_seconds(config.destroy_safe_time) if config.destroy_safe_time else 0
-        safety_destroy_duration = max(unsafe_time, destroy_safe_time_in_sec)
         bill_time_unit_in_sec = to_seconds(config.bill_time_unit)
         cur_bill_live_time = meta.live_sec % bill_time_unit_in_sec
-        ttl = bill_time_unit_in_sec - cur_bill_live_time - safety_destroy_duration
+        destroy_safe_time_in_sec = to_seconds(config.destroy_safe_time) if config.destroy_safe_time else 0
+        ttl = bill_time_unit_in_sec - cur_bill_live_time - destroy_safe_time_in_sec
         if ttl > 0:
             return False, f"still have {humanize_seconds(ttl)} to live(bill_time_unit={config.bill_time_unit})."
 

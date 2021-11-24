@@ -61,6 +61,7 @@ class LinodeProvider(BaseProvider):
         send_to_channel(channel, f"New server {server_name} (IP: {instance.ipv4}) created!")
 
         # save server info to local first
+        # TODO `_serialize` information le less
         instance_info = instance._serialize()  # noqa
         instance_info["id"] = instance.id
         self.save_raw_server(instance_info, workspace)  # noqa
@@ -79,7 +80,7 @@ class LinodeProvider(BaseProvider):
 
     def _ask_user_customize_server(self, channel: Channel) -> Tuple[str, str, str]:
         manually_create_choice = "Manually choose a new linode to create.."
-        options = [manually_create_choice, *self.provider_config.favorite_droplets]
+        options = [manually_create_choice, *self.provider_config.favorite_instance_types]
         user_selected_idx = choose_option(channel, options, ask_prompt="Please choose new linode to create: ")
         user_selected = options[user_selected_idx]
         logger.info(f"choose linode, user selected: {user_selected_idx}: {user_selected}")
@@ -96,7 +97,7 @@ class LinodeProvider(BaseProvider):
         types: List[Type] = [i for i in linode.linode.types()]
         images: List[Image] = [i for i in linode.images()]
 
-        region_slugs = [f"{r.id} - {r.country}, status: {r.status}" for r in regions]
+        region_slugs = [f"{r.id:15} - {r.country:3} | status: {r.status:5}" for r in regions]
         selected_region_idx = choose_option(channel, region_slugs, ask_prompt="Please choose region: ")
         selected_region: Region = regions[selected_region_idx]
 

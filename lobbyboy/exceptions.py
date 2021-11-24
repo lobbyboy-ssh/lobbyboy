@@ -2,6 +2,10 @@ class LobbyBoyException(Exception):
     pass
 
 
+class InvalidConfigException(LobbyBoyException):
+    pass
+
+
 class TimeStrParseTypeException(LobbyBoyException):
     pass
 

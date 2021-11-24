@@ -89,7 +89,7 @@ class DigitalOceanProvider(BaseProvider):
 
     def _ask_user_customize_server(self, channel: Channel) -> Tuple[str, str, str]:
         manually_create_choice = "Manually choose a new droplet to create.."
-        options = [manually_create_choice, *self.provider_config.favorite_droplets]
+        options = [manually_create_choice, *self.provider_config.favorite_instance_types]
         user_selected_idx = choose_option(channel, options, ask_prompt="Please choose new droplet to create: ")
         user_selected = options[user_selected_idx]
         logger.info(f"choose droplet, user selected: {user_selected_idx}: {user_selected}")

@@ -19,7 +19,9 @@ class VagrantProvider(BaseProvider):
     def generate_server_name(self):
         vm_name = None
         for idx in range(1, 99):
-            vm_name = f"{self.provider_config.server_name_prefix}-{idx}"
+            vm_name = str(idx)
+            if self.provider_config.server_name_prefix:
+                vm_name = f"{self.provider_config.server_name_prefix}-{vm_name}"
             server_workspace = self.workspace.joinpath(vm_name)
             if not server_workspace.exists():
                 return vm_name

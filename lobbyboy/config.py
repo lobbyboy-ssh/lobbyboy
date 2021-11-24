@@ -5,19 +5,20 @@ from collections import OrderedDict
 from dataclasses import dataclass, replace, field, fields, asdict
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Dict, List, Tuple, OrderedDict as typeOrderedDict
+from typing import Dict, List, Tuple, OrderedDict as typeOrderedDict, Optional
 
 import toml
 
-from lobbyboy.utils import lb_dict_factory
+from lobbyboy.exceptions import InvalidConfigException
+from lobbyboy.utils import lb_dict_factory, confirm_dc_type
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class LBConfigUser:
-    authorized_keys: str = ""
-    password: bool = False
+    authorized_keys: str = None
+    password: bool = None
 
     def auth_key_pairs(self) -> List[Tuple]:
         """
@@ -25,23 +26,26 @@ class LBConfigUser:
         Returns:
             tuple: (key_type, key_data)
         """
+        if not self.authorized_keys:
+            return []
         return [tuple(ssh_key.split(maxsplit=1)) for ssh_key in self.authorized_keys.split("\n") if ssh_key]
 
 
 @dataclass
 class LBConfigProvider:
-    load_module: str
-    min_life_to_live: str = "50m"  # 最少存活时间
-    bill_time_unit: str = "55m"
-    private_key: str = "auto"
+    load_module: str = None
+    min_life_to_live: str = None
+    bill_time_unit: str = None
+    # FIXME un used?
+    private_key: str = None
+    api_token: str = None
+    destroy_safe_time: str = None
+    server_name_prefix: str = None
     extra_ssh_keys: List[str] = field(default_factory=list)
-    favorite_droplets: List[str] = field(default_factory=list)
-    api_token: str = ""
-    destroy_safe_time: str = "3m"
-    server_name_prefix: str = "lobbyboy"
+    favorite_instance_types: List[str] = field(default_factory=list)
 
     # todo unique configuration of each provider
-    vagrantfile: str = ""
+    vagrantfile: str = None
 
 
 @dataclass
@@ -56,11 +60,14 @@ class LBServerMeta:
     # TODO support below features when create server
     # extra ssh args when connect to this server by ssh, eg: ["-o", "ProxyCommand=$jumpServer"]
     ssh_extra_args: List[str] = field(default_factory=list)
-    # indicate whether this server is managed by lobbyboy or not.
+    # indicate whether this server is managed by us or not.
     manage: bool = True
 
     def __post_init__(self):
-        if isinstance(self.workspace, str):
+        self.confirm_data_type()
+
+    def confirm_data_type(self):
+        if self.workspace:
             self.workspace = Path(self.workspace)
 
     @property
@@ -70,25 +77,36 @@ class LBServerMeta:
 
 @dataclass
 class LBConfig:
-    _file: Path
+    _file: Path = None
     _raw: Dict = field(default_factory=dict)
     data_dir: Path = None
     user: Dict[str, LBConfigUser] = field(default_factory=dict)
     provider: Dict[str, LBConfigProvider] = field(default_factory=dict)
-    listen_port: int = 12200
-    listen_ip: str = "0.0.0.0"
-    log_level: str = "DEBUG"
-    min_destroy_interval: str = "5m"
-    servers_file: str = "available_servers_db.json"
+    listen_port: int = None
+    listen_ip: str = None
+    log_level: str = None
+    min_destroy_interval: str = None
+    servers_file: str = None
 
     def __post_init__(self):
-        # TODO
+        self.confirm_data_type()
+
+    def validate(self) -> Tuple[bool, Optional[str]]:
+        """
+
+        Returns:
+            tuple(bool, str): (config_is_valid, reason)
+        """
+        if self.data_dir is None:
+            return False, "missing required config: please check 'data_dir' in your config file."
+        # TODO, config validator
+        return True, None
+
+    def confirm_data_type(self):
         if self.data_dir:
             self.data_dir = Path(self.data_dir)
-        if any(1 for i in self.user.values() if not isinstance(i, LBConfigUser)):
-            self.user = {name: LBConfigUser(**config) for name, config in self.user.items()}  # noqa
-        if any(1 for i in self.provider.values() if not isinstance(i, LBConfigProvider)):
-            self.provider = {name: LBConfigProvider(**config) for name, config in self.provider.items()}  # noqa
+        self.user = {u: confirm_dc_type(config, LBConfigUser) for u, config in self.user.items()}
+        self.provider = {p: confirm_dc_type(config, LBConfigProvider) for p, config in self.provider.items()}
 
     def reload(self) -> "LBConfig":
         return load_config(self._file)
@@ -100,7 +118,7 @@ class LBConfig:
     @classmethod
     def load_local_servers(cls, db_path: Path) -> typeOrderedDict[str, LBServerMeta]:
         """
-        load from available_servers_db.json file, return result
+        load from `servers_file` config, return result
         """
         servers_json = []
         try:
@@ -144,10 +162,19 @@ def load_config(config_file: Path) -> LBConfig:
     raw_head_config = toml.load(config_file)
     logger.debug(f"loading configs from {str(config_file)}, config: {raw_head_config}")
 
+    # init config
     config = LBConfig(_file=config_file, _raw=raw_head_config)
+
+    # update it from config file
     config_file_file = {
         f.name: raw_head_config[f.name]
         for f in fields(LBConfig)
         if f.name in raw_head_config and not f.name.startswith("_")
     }
-    return replace(config, **config_file_file)
+    config = replace(config, **config_file_file)
+
+    # validation
+    is_valid, reason = config.validate()
+    if not is_valid:
+        raise InvalidConfigException(reason)
+    return config

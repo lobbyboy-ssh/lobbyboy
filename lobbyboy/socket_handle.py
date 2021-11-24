@@ -228,7 +228,7 @@ class SocketHandlerThread(threading.Thread):
             t.set_gss_host(socket.getfqdn())
             server = self.prepare_server(t)
             if not (server and self.channel):
-                self.cleanup(t, meta=server)
+                self.cleanup(t)
                 return
 
             send_to_channel(self.channel, f"Welcome to LobbyBoy {__version__}!")
@@ -243,7 +243,7 @@ class SocketHandlerThread(threading.Thread):
                 self.channel,
                 f"LobbyBoy: SSH to remote server {lb_server.server_name} closed.",
             )
-            self.cleanup(t, check_destroy=True)
+            self.cleanup(t, meta=server, check_destroy=True)
         except Exception:  # noqa
             logger.critical("*** Socket thread error.", exc_info=True)
             self.cleanup(t)
