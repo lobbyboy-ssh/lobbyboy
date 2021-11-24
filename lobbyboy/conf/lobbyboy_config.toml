@@ -98,4 +98,6 @@ end
 
 [provider.linode]
 load_module = "lobbyboy.contrib.provider.linode::LinodeProvider"
+# Will try to read from environment variables first, ``LINODE_TOKEN``
+# if empty, then use this config
 # api_token = ""
