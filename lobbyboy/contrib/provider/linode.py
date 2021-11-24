@@ -31,9 +31,10 @@ class LinodeProvider(BaseProvider):
 
     def create_server(self, channel: Channel) -> LBServerMeta:
         region_id, type_id, image_id = self._ask_user_customize_server(channel)
-        server_workspace = self._generate_server_workspace()
-        # use directory name as server name
-        server_name = os.path.basename(server_workspace)
+        server_name = self.default_server_name
+        server_workspace = self.get_server_workspace(server_name)
+        server_workspace.mkdir(exist_ok=True, parents=True)
+
         logger.info(f"create {self.name} server {server_name} workspace: {server_workspace}.")
         send_to_channel(channel, f"Generate server {server_name} workspace {server_workspace} done.")
 

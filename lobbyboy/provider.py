@@ -27,6 +27,23 @@ class BaseProvider(ABC):
         self.provider_config: LBConfigProvider = config
         self.workspace: Path = workspace
 
+    @property
+    def default_server_name(self):
+        server_name = datetime.now().strftime("%Y-%m-%d-%H%M")
+        if self.provider_config.server_name_prefix:
+            server_name = f"{self.provider_config.server_name_prefix}-{server_name}"
+
+        for suffix in ["", *string.ascii_lowercase]:
+            _server_name = f"{server_name}{suffix}"
+            server_workspace = self.workspace.joinpath(_server_name)
+            if not server_workspace.exists():
+                server_workspace.mkdir(parents=True)
+                return _server_name
+        raise NoAvailableNameException(f"{self.name}'s server {server_name}[a-z] already exist!")
+
+    def get_server_workspace(self, server_name: str) -> Path:
+        return self.workspace.joinpath(server_name)
+
     @staticmethod
     def time_process_action(
         channel: Channel, action: Callable, max_check: int = 20, interval: int = 3, **action_kws

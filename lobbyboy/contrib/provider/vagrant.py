@@ -1,12 +1,11 @@
 import logging
-import os
 import subprocess
 from pathlib import Path
 
 from paramiko import Channel
 
 from lobbyboy.config import LBConfigProvider, LBServerMeta
-from lobbyboy.exceptions import VagrantProviderException
+from lobbyboy.exceptions import VagrantProviderException, NoAvailableNameException
 from lobbyboy.provider import BaseProvider
 from lobbyboy.utils import send_to_channel
 
@@ -17,10 +16,20 @@ class VagrantProvider(BaseProvider):
     def __init__(self, name: str, config: LBConfigProvider, workspace: Path):
         super().__init__(name, config, workspace)
 
+    def generate_server_name(self):
+        vm_name = None
+        for idx in range(1, 99):
+            vm_name = f"{self.provider_config.server_name_prefix}-{idx}"
+            server_workspace = self.workspace.joinpath(vm_name)
+            if not server_workspace.exists():
+                return vm_name
+        raise NoAvailableNameException(f"{self.name}'s server {vm_name}[a-z] already exist!")
+
     def create_server(self, channel: Channel) -> LBServerMeta:
-        server_workspace = self._generate_server_workspace()
-        # use directory name as server name
-        server_name = os.path.basename(server_workspace)
+        server_name = self.generate_server_name()
+        server_workspace = self.get_server_workspace(server_name)
+        server_workspace.mkdir(exist_ok=True, parents=True)
+
         logger.info(f"create {self.name} server {server_name} workspace: {server_workspace}.")
         send_to_channel(channel, f"Generate server {server_name} workspace {server_workspace} done.")
 
