@@ -1,6 +1,7 @@
 import logging
 import subprocess
 from pathlib import Path
+from typing import List, Optional
 
 from paramiko import Channel
 
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 class VagrantProvider(BaseProvider):
     def __init__(self, name: str, config: LBConfigProvider, workspace: Path):
         super().__init__(name, config, workspace)
+        self._tmp_ssh_config_file: Optional[Path] = None
 
     def generate_server_name(self):
         vm_name = None
@@ -44,12 +46,13 @@ class VagrantProvider(BaseProvider):
         send_to_channel(channel, f"New server {server_name} created!")
 
         send_to_channel(channel, "Waiting for server to boot...")
+        self._tmp_ssh_config_file = server_workspace.joinpath("ssh_config")
         self.time_process_action(
             channel,
             self._run_vagrant,
             command_exec=["vagrant", "ssh-config", server_name],
             cwd=str(server_workspace),
-            stdout=open(server_workspace / "ssh_config", "wb+"),
+            stdout=open(self._tmp_ssh_config_file, "wb+"),
         )
         send_to_channel(channel, f"Server {server_name} has boot successfully!")
 
@@ -67,6 +70,17 @@ class VagrantProvider(BaseProvider):
         if not success:
             raise VagrantProviderException("Error when destroy {}".format(vid))
         return success
+
+    def ssh_server_command(self, meta: LBServerMeta, pri_key_path: Path = None) -> List[str]:
+        command = [
+            "ssh",
+            "-F",
+            self._tmp_ssh_config_file,
+            *meta.ssh_extra_args,
+            meta.server_name,
+        ]
+        logger.info(f"returning ssh command: {command}")
+        return command
 
     @staticmethod
     def _run_vagrant(command_exec: list, cwd=None, stdout=None):

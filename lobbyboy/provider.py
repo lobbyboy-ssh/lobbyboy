@@ -87,19 +87,6 @@ class BaseProvider(ABC):
             logger.debug(f"load server data from {_path}")
             return json.load(f)
 
-    def _generate_server_workspace(self):
-        server_name = datetime.now().strftime("%Y-%m-%d-%H%M")
-        if self.provider_config.server_name_prefix:
-            server_name = f"{self.provider_config.server_name_prefix}-{server_name}"
-
-        for suffix in ["", *string.ascii_lowercase]:
-            _server_name = f"{server_name}{suffix}"
-            server_workspace = self.workspace.joinpath(_server_name)
-            if not server_workspace.exists():
-                server_workspace.mkdir(parents=True)
-                return server_workspace
-        raise NoAvailableNameException(f"{self.name}'s server {server_name}[a-z] already exist!")
-
     @abstractmethod
     def create_server(self, channel: Channel) -> LBServerMeta:
         """

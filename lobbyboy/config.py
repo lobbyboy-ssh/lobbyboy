@@ -36,8 +36,6 @@ class LBConfigProvider:
     load_module: str = None
     min_life_to_live: str = None
     bill_time_unit: str = None
-    # FIXME un used?
-    private_key: str = None
     api_token: str = None
     destroy_safe_time: str = None
     server_name_prefix: str = None
