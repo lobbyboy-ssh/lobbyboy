@@ -243,7 +243,7 @@ class SocketHandlerThread(threading.Thread):
                 self.channel,
                 f"LobbyBoy: SSH to remote server {lb_server.server_name} closed.",
             )
-            self.cleanup(t, meta=server, check_destroy=True)
+            self.cleanup(t, meta=lb_server, check_destroy=True)
         except Exception:  # noqa
             logger.critical("*** Socket thread error.", exc_info=True)
             self.cleanup(t)
