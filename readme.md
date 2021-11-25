@@ -21,6 +21,7 @@
 * [Providers](#providers)
   * [Builtin Providers](#builtin-providers)
     * [DigitalOcean Provider](#digitalocean-provider)
+    * [Linode Provider](#linode-provider)
   * [Write Your Own Providers](#write-your-own-providers)
   * [Publish Your Own Providers](#publish-your-own-providers)
 * [FAQ](#faq)
@@ -113,6 +114,7 @@ Lobbyboy current support two Providers:
 
 - DigitalOcean
 - Vagrant (Need vagrant and virtualbox to be installed)
+- Linode
 
 Different Providers support different configs, please see the
 [example config](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
@@ -120,7 +122,7 @@ for more detail.
 
 #### DigitalOcean Provider
 
-This Provider will create Droplet from DigitalOcean.
+This Provider will create [Droplet](https://docs.digitalocean.com/products/droplets/) from DigitalOcean.
 
 Supported Features:
 
@@ -128,6 +130,17 @@ Supported Features:
 - Ask user to input region/droplet size/image when creating.
 - User can save favorite Droplet region/size/image in configs to quick create.
 - Destroy droplet when it is not in use.
+
+#### Linode Provider
+
+This Provider will create [Node](https://www.linode.com/docs/products/compute/) from Linode.
+
+Supported Features:
+
+- Create a new ssh key every time create a droplet.
+- Ask user to input region/node type/image when creating.
+- User can save favorite node region/type/image in configs to quick create.
+- Destroy node when it is not in use.
 
 Please see
 [configs](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
@@ -141,38 +154,32 @@ Providers are VPS vendors, by writing new providers, lobbyboy can work with any
 VPS vendors.
 
 To make a new Provider work, you need to extend base class
-`lobbyboy.provider.BaseProvider``, implement 3 methods:
+`lobbyboy.provider.BaseProvider``, implement 2 methods:
 
 ```
-  def new_server(self, channel):
-      """
-      Args:
-          channel: paramiko channel
+    def create_server(self, channel: Channel) -> LBServerMeta:
+        """
+        Args:
+            channel: paramiko channel
 
-      Returns:
-          created_server_id: unique id from provision
-          created_server_host: server's ip or domain address
-      """
-      pass
+        Returns:
+            LBServerMeta: server meta info
+        """
+        ...
 
-  def destroy_server(self, server_id, server_ip, channel):
-      """
-      Args:
-          channel: Note that the channel can be None.
-                    If called from server_killer, channel will be None.
-                    if called when user logout from server, channel is active.
-      """
-      pass
 
-  def ssh_server_command(self, server_id, server_ip):
-      """
-      Args:
-          server_id: the server ssh to, which is returned by you from ``new_server``
-          server_ip: ip or domain name.
-      Returns:
-          list: a command in list format, for later to run exec.
-      """
-      pass
+    def destroy_server(self, meta: LBServerMeta, channel: Channel = None) -> bool:
+        """
+        Args:
+            meta: LBServerMeta, we use this to locate one server then destroy it.
+            channel: Note that the channel can be None.
+                     If called from server_killer, channel will be None.
+                     if called when user logout from server, channel is active.
+
+        Returns:
+            bool: True if destroy successfully, False if not.
+        """
+        ...
 ```
 
 Then add your Provider to your config file.
@@ -183,7 +190,7 @@ your spare servers. You can add more configs, and read them from
 
 ```
 [provider.<your provider name>]
-loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
+load_module = "lobbyboy.contrib.provider.<your provider module name>::<Provider Class>"
 min_life_to_live = "1h"
 bill_time_unit = "1h"
 ```
