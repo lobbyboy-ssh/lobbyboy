@@ -154,38 +154,32 @@ Providers are VPS vendors, by writing new providers, lobbyboy can work with any
 VPS vendors.
 
 To make a new Provider work, you need to extend base class
-`lobbyboy.provider.BaseProvider``, implement 3 methods:
+`lobbyboy.provider.BaseProvider``, implement 2 methods:
 
 ```
-  def new_server(self, channel):
-      """
-      Args:
-          channel: paramiko channel
+    def create_server(self, channel: Channel) -> LBServerMeta:
+        """
+        Args:
+            channel: paramiko channel
 
-      Returns:
-          created_server_id: unique id from provision
-          created_server_host: server's ip or domain address
-      """
-      pass
+        Returns:
+            LBServerMeta: server meta info
+        """
+        ...
 
-  def destroy_server(self, server_id, server_ip, channel):
-      """
-      Args:
-          channel: Note that the channel can be None.
-                    If called from server_killer, channel will be None.
-                    if called when user logout from server, channel is active.
-      """
-      pass
 
-  def ssh_server_command(self, server_id, server_ip):
-      """
-      Args:
-          server_id: the server ssh to, which is returned by you from ``new_server``
-          server_ip: ip or domain name.
-      Returns:
-          list: a command in list format, for later to run exec.
-      """
-      pass
+    def destroy_server(self, meta: LBServerMeta, channel: Channel = None) -> bool:
+        """
+        Args:
+            meta: LBServerMeta, we use this to locate one server then destroy it.
+            channel: Note that the channel can be None.
+                     If called from server_killer, channel will be None.
+                     if called when user logout from server, channel is active.
+
+        Returns:
+            bool: True if destroy successfully, False if not.
+        """
+        ...
 ```
 
 Then add your Provider to your config file.
@@ -196,7 +190,7 @@ your spare servers. You can add more configs, and read them from
 
 ```
 [provider.<your provider name>]
-loadmodule = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
+load_module = "lobbyboy.contrib.provider.<your provider module name>::<Provider Class>"
 min_life_to_live = "1h"
 bill_time_unit = "1h"
 ```
