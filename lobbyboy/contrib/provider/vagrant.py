@@ -21,6 +21,7 @@ class VagrantProvider(BaseProvider):
         for idx in range(1, 99):
             vm_name = str(idx)
             if self.provider_config.server_name_prefix:
+                logger.info(f"server name prefix: {self.provider_config.server_name_prefix}")
                 vm_name = f"{self.provider_config.server_name_prefix}-{vm_name}"
             server_workspace = self.workspace.joinpath(vm_name)
             if not server_workspace.exists():
@@ -29,6 +30,7 @@ class VagrantProvider(BaseProvider):
 
     def create_server(self, channel: Channel) -> LBServerMeta:
         server_name = self.generate_server_name()
+        logger.info(f"Got server name for vagrant: {server_name}.")
         server_workspace = self.get_server_workspace(server_name)
         server_workspace.mkdir(exist_ok=True, parents=True)
 
@@ -36,7 +38,7 @@ class VagrantProvider(BaseProvider):
         send_to_channel(channel, f"Generate server {server_name} workspace {server_workspace} done.")
 
         with open(server_workspace.joinpath("Vagrantfile"), "w+") as f:
-            f.write(self.provider_config.vagrantfile.format(boxname=server_workspace))
+            f.write(self.provider_config.vagrantfile.format(boxname=server_name))
 
         self.time_process_action(channel, self._run_vagrant, command_exec=["vagrant", "up"], cwd=str(server_workspace))
         send_to_channel(channel, f"New server {server_name} created!")

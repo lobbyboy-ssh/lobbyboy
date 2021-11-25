@@ -94,6 +94,7 @@ min_life_to_live = "1h"
 bill_time_unit = "1h"
 destroy_safe_time = '5m'
 private_key="auto"
+server_name_prefix = 'lobbyboy'
 vagrantfile="""
 Vagrant.configure("2") do |config|
   config.vm.define "{boxname}"
