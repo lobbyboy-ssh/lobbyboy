@@ -48,6 +48,15 @@ class BaseProvider(ABC):
         channel: Channel, action: Callable, max_check: int = 20, interval: int = 3, **action_kws
     ) -> bool:
         """
+        This is a helper function, it block until ``action`` is done (when the
+        ``action`` returns True, consider it as "done"). Before the action
+        being done, the check will be executed(``action`` being called) every
+        ``internal` seconds, until ``max_check`` limit exceed.
+
+        For every check, LobbyBoy ssh server will send a "." to ssh user to
+        incident that it starts a new turn or check. When the ``action`` final
+        return ``True``, LobbyBoy will show the total time cost to user.
+
         Args:
            channel: paramiko channel
            action: execute with time process, need return bool
@@ -58,6 +67,7 @@ class BaseProvider(ABC):
             bool: bool result before end of check time
         """
         action_name = " ".join(action.__name__.split("_"))
+        logger.debug("watch a new action, action_name: %s", action_name)
         send_to_channel(channel, f"Check {action_name}", suffix="")
         start_at = time.time()
         try_times = 1
@@ -69,7 +79,10 @@ class BaseProvider(ABC):
                 return res
             time.sleep(interval)
             try_times += 1
-        send_to_channel(channel, "UNKNOWN state, please check it manually.")
+        send_to_channel(
+            channel,
+            "\n I have checked {} times for action {}, still not finished, give up...".format(max_check, action_name),
+        )
         return False
 
     @staticmethod

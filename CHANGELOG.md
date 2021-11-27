@@ -1,5 +1,15 @@
 ## Comming Next
 
+## 0.3.0
+
+- feature: while waiting for providers doing the work for you (like creating a
+  new VPS), Lobbyboy will show you the time pass by displaying `.` in terminal,
+  then display the total time cost when the operation is done. (by @luxiaba)
+- new provider: linode is supported now! (by @luxiaba)
+- api change: the provider api is changed, including function name, args,
+  returns. Please see the code for details. We will have the official docs soon.
+- refactor: the code of lobbyboy is now more readable and elegant now. (also by
+  @luxiaba)
 
 ## 0.2.3
 

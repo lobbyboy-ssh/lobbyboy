@@ -20,6 +20,7 @@
   * [Run in Docker](#run-in-docker)
 * [Providers](#providers)
   * [Builtin Providers](#builtin-providers)
+    * [Vagrant Provider](#vagrant-provider)
     * [DigitalOcean Provider](#digitalocean-provider)
     * [Linode Provider](#linode-provider)
   * [Write Your Own Providers](#write-your-own-providers)
@@ -112,13 +113,24 @@ systemd/[supervisord](http://supervisord.org/) or put it into a docker.
 
 Lobbyboy current support two Providers:
 
-- DigitalOcean
 - Vagrant (Need vagrant and virtualbox to be installed)
+- DigitalOcean
 - Linode
 
 Different Providers support different configs, please see the
 [example config](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
 for more detail.
+
+#### Vagrant Provider
+
+Vagrant Provider won't cost you any money, [vagrant](https://www.vagrantup.com/) is a software runs on your computer along with virtual machine providers, vagrant can provision and control your VM.
+
+This provider can help you to create a new Vagrant instance when you login to Lobbyboy, and destroy the server when you no longer use it.
+
+Supported Features:
+
+- Create new Vagrant instances
+- You can configure your VM via `vagrantfile` config (see the config [example](./lobbyboy/conf/lobbyboy_config.toml)).
 
 #### DigitalOcean Provider
 

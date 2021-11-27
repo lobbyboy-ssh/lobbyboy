@@ -64,6 +64,7 @@ def prepare_socket(listen_ip: str, listen_port: int) -> socket:
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        logger.info("start listen on %s:%s...", listen_ip, listen_port)
         sock.bind((listen_ip, listen_port))
     except Exception as e:
         logger.error(f"*** Bind failed: {e}")

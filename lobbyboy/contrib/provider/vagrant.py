@@ -23,7 +23,6 @@ class VagrantProvider(BaseProvider):
         for idx in range(1, 99):
             vm_name = str(idx)
             if self.provider_config.server_name_prefix:
-                logger.info(f"server name prefix: {self.provider_config.server_name_prefix}")
                 vm_name = f"{self.provider_config.server_name_prefix}-{vm_name}"
             server_workspace = self.workspace.joinpath(vm_name)
             if not server_workspace.exists():
@@ -32,7 +31,7 @@ class VagrantProvider(BaseProvider):
 
     def create_server(self, channel: Channel) -> LBServerMeta:
         server_name = self.generate_server_name()
-        logger.info(f"Got server name for vagrant: {server_name}.")
+        logger.info(f"got server name for vagrant: {server_name}.")
         server_workspace = self.get_server_workspace(server_name)
         server_workspace.mkdir(exist_ok=True, parents=True)
 
@@ -42,19 +41,22 @@ class VagrantProvider(BaseProvider):
         with open(server_workspace.joinpath("Vagrantfile"), "w+") as f:
             f.write(self.provider_config.vagrantfile.format(boxname=server_name))
 
-        self.time_process_action(channel, self._run_vagrant, command_exec=["vagrant", "up"], cwd=str(server_workspace))
+        vagrant_up_process = VagrantProvider._popen_vagrant(["vagrant", "up"], cwd=str(server_workspace))
+        logger.debug("vagrant up process %s", vagrant_up_process.pid)
+
+        def vagrant_up():
+            return vagrant_up_process.poll() == 0
+
+        self.time_process_action(channel, vagrant_up)
         send_to_channel(channel, f"New server {server_name} created!")
 
-        send_to_channel(channel, "Waiting for server to boot...")
+        # export the ssh_config to file
         self._tmp_ssh_config_file = server_workspace.joinpath("ssh_config")
-        self.time_process_action(
-            channel,
-            self._run_vagrant,
+        VagrantProvider._run_vagrant(
             command_exec=["vagrant", "ssh-config", server_name],
             cwd=str(server_workspace),
             stdout=open(self._tmp_ssh_config_file, "wb+"),
         )
-        send_to_channel(channel, f"Server {server_name} has boot successfully!")
 
         return LBServerMeta(
             provider_name=self.name,
@@ -84,21 +86,29 @@ class VagrantProvider(BaseProvider):
 
     @staticmethod
     def _run_vagrant(command_exec: list, cwd=None, stdout=None):
+        p = VagrantProvider._popen_vagrant(command_exec, cwd, stdout)
+        p.wait()
+        returncode = p.returncode
+        stdout = p.stdout
+        if stdout is not None:
+            stdout = stdout.read().decode()
+        stderr = p.stderr
+        if stderr is not None:
+            stderr = stderr.read().decode()
+        if returncode == 0:
+            logger.info(f"vagrant_command SUCCESS, command={' '.join(command_exec)} stdout={stdout}, stderr={stderr}")
+            return returncode, stdout, stderr
+        logger.error(f"vagrant_command SUCCESS, command={' '.join(command_exec)} stdout={stdout}, stderr={stderr}")
+        raise Exception
+
+    @staticmethod
+    def _popen_vagrant(command_exec: list, cwd=None, stdout=None):
         cmd = " ".join(command_exec)
         logger.info(f"start to run command: {cmd}")
-        capture_output = stdout is None
-        vagrant_process = subprocess.run(command_exec, cwd=cwd, capture_output=capture_output, stdout=stdout)
-        if vagrant_process.returncode == 0:
-            logger.info(
-                f"vagrant_command SUCCESS, command={cmd} "
-                f"stdout={vagrant_process.stdout}, stderr={vagrant_process.stderr}"
-            )
-            return vagrant_process.returncode, vagrant_process.stdout, vagrant_process.stderr
-        logger.error(
-            f"vagrant_command FAILED! command={cmd} return_code: {vagrant_process.returncode}, "
-            f"stdout: {vagrant_process.stdout}, stdout: {vagrant_process.stderr}"
-        )
-        raise Exception
+        if stdout is None:
+            stdout = subprocess.PIPE
+        vagrant_process = subprocess.Popen(command_exec, cwd=cwd, stdout=stdout, stderr=subprocess.PIPE, close_fds=True)
+        return vagrant_process
 
     def _get_vagrant_machine_id(self, server_name):
         _, stdout, _ = self._run_vagrant(["vagrant", "global-status"])
