@@ -73,7 +73,7 @@ server_name_prefix = 'lobbyboy'
 # extra_ssh_keys = [
 # ]
 
-# quick choose a favorite droplet tempalte to create
+# quick choose a favorite droplet template to create
 # format: regions-slug:size-slug:image-slug
 favorite_instance_types = [
    "sgp1:s-1vcpu-1gb:ubuntu-21-04-x64",

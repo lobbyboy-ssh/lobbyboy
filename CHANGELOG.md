@@ -1,4 +1,4 @@
-## Comming Next
+## Coming Next
 
 ## 0.3.0
 
