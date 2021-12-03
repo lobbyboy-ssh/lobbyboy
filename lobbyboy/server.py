@@ -139,7 +139,7 @@ class Server(paramiko.ServerInterface):
 
     def check_channel_window_change_request(self, channel, width, height, pixelwidth, pixelheight):
         logger.debug(
-            f"client send window size change reuqest... "
+            f"client send window size change request... "
             f"width={width}, height={height}, pixelwidth={pixelwidth}, pixelheight={pixelheight}, "
             f"my proxy_subprocess_pid={self.proxy_subprocess_pid}, master_fd={self.master_fd}"
         )
