@@ -5,8 +5,7 @@ from lobbyboy.exceptions import ProviderException
 import subprocess
 from lobbyboy.provider import BaseProvider
 from paramiko import Channel
-from typing import List, Optional
-from lobbyboy.config import LBConfigProvider, LBServerMeta
+from typing import List
 from lobbyboy.utils import send_to_channel
 
 
@@ -23,7 +22,11 @@ class FootlooseProvider(BaseProvider):
         process = subprocess.run(["footloose", "-h"])
         if process.returncode != 0:
             raise FootlooseException(
-                "footloose executable is not exist! Please install footloose via `GO111MODULE=on go get github.com/weaveworks/footloose`"
+                (
+                    "footloose executable is not exist! "
+                    "Please install footloose via "
+                    "`GO111MODULE=on go get github.com/weaveworks/footloose`"
+                )
             )
         return True
 

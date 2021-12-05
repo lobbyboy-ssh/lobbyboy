@@ -165,7 +165,7 @@ class SocketHandlerThread(threading.Thread):
         except ProviderException as e:
             logger.warning(f"got exceptions from provider: {e}")
             send_to_channel(self.channel, f"LobbyBoy got exceptions from provider: {e}")
-        except Exception  as e:
+        except Exception as e:
             logger.warning(f"got exceptions: {e}")
             send_to_channel(self.channel, f"LobbyBoy got exceptions: {e}")
             raise

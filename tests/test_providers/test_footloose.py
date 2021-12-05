@@ -16,7 +16,7 @@ def test_footloose_destroy(fake_subprocess_run, footloose_provider, footloose_se
     fake_subprocess_run.assert_called_with(
         ["footloose", "delete", "-c", Path("/tmp/footloose_test/footloose.yaml")], capture_output=True
     )
-    assert destroy_command == True
+    assert destroy_command is True
 
 
 def test_ssh_server_commands(footloose_provider, footloose_servermeta):
