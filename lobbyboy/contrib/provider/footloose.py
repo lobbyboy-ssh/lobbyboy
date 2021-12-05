@@ -18,6 +18,7 @@ class FootlooseException(ProviderException):
 
 
 class FootlooseProvider(BaseProvider):
+    # TODO add to pre hook
     def check_footloose_executable(self):
         process = subprocess.run(["footloose", "-h"])
         if process.returncode != 0:
@@ -27,7 +28,6 @@ class FootlooseProvider(BaseProvider):
         return True
 
     def create_server(self, channel: Channel) -> LBServerMeta:
-        self.check_footloose_executable()
         server_name = self.generate_default_server_name()
         logger.info("footloose generated server_name: %s", server_name)
         server_workspace = self.get_server_workspace(server_name)
