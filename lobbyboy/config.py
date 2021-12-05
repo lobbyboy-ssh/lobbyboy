@@ -44,6 +44,7 @@ class LBConfigProvider:
 
     # todo unique configuration of each provider
     vagrantfile: str = None
+    footloose_config: str = ""
 
 
 @dataclass

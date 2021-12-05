@@ -85,6 +85,7 @@ class SocketHandlerThread(threading.Thread):
     def _ask_user_to_create_server(self) -> LBServerMeta:
         provider: BaseProvider = self.choose_providers()
         meta: LBServerMeta = provider.create_server(self.channel)
+
         with available_server_db_lock:
             LBConfig.update_local_servers(self.config.servers_db_path, new=[meta])
         return meta
@@ -164,6 +165,11 @@ class SocketHandlerThread(threading.Thread):
         except ProviderException as e:
             logger.warning(f"got exceptions from provider: {e}")
             send_to_channel(self.channel, f"LobbyBoy got exceptions from provider: {e}")
+        except Exception as e:
+            logger.warning(f"got exceptions: {e}")
+            send_to_channel(self.channel, f"LobbyBoy got exceptions: {e}")
+            raise
+
         if not (proxy_subprocess and lb_server):
             return None, None
 

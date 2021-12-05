@@ -68,6 +68,8 @@ def to_seconds(time_str: str) -> int:
     Returns:
         int: seconds
     """
+    if time_str == "0":
+        return 0
     for unit, sec in UNIT_SEC_PAIRS.items():
         re_time_str = r"(\d+){unit}".format(unit=unit)
         matched = re.match(re_time_str, time_str)

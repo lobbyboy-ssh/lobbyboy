@@ -9,3 +9,4 @@ def test_to_seconds():
     assert 60 * 60 * 20 == to_seconds("20h")
     assert 60 * 60 * 24 * 1 == to_seconds("1d")
     assert 60 * 60 * 24 * 3 == to_seconds("3d")
+    assert 0 == to_seconds("0")

@@ -21,6 +21,7 @@
 * [Providers](#providers)
   * [Builtin Providers](#builtin-providers)
     * [Vagrant Provider](#vagrant-provider)
+    * [Footloose Provider](#footloose-provider)
     * [DigitalOcean Provider](#digitalocean-provider)
     * [Linode Provider](#linode-provider)
   * [Write Your Own Providers](#write-your-own-providers)
@@ -111,9 +112,12 @@ systemd/[supervisord](http://supervisord.org/) or put it into a docker.
 
 ### Builtin Providers
 
-Lobbyboy current support two Providers:
+Lobbyboy current support multiple Providers:
 
 - Vagrant (Need vagrant and virtualbox to be installed)
+- Footlosse, in another words, containers (Need
+  [footloose](https://github.com/weaveworks/footloose) and docker to be
+  installed)
 - DigitalOcean
 - Linode
 
@@ -123,18 +127,34 @@ for more detail.
 
 #### Vagrant Provider
 
-Vagrant Provider won't cost you any money, [vagrant](https://www.vagrantup.com/) is a software runs on your computer along with virtual machine providers, vagrant can provision and control your VM.
+Vagrant Provider won't cost you any money, [vagrant](https://www.vagrantup.com/)
+is a software runs on your computer along with virtual machine providers,
+vagrant can provision and control your VM.
 
-This provider can help you to create a new Vagrant instance when you login to Lobbyboy, and destroy the server when you no longer use it.
+This provider can help you to create a new Vagrant instance when you login to
+Lobbyboy, and destroy the server when you no longer use it.
 
 Supported Features:
 
 - Create new Vagrant instances
-- You can configure your VM via `vagrantfile` config (see the config [example](./lobbyboy/conf/lobbyboy_config.toml)).
+- You can configure your VM via `vagrantfile` config (see the config
+  [example](./lobbyboy/conf/lobbyboy_config.toml)).
+
+#### Footloose Provider
+
+[footloose](https://github.com/weaveworks/footloose) can make your docker
+containers(or Firecracker with [ignite](https://github.com/weaveworks/ignite))
+act like virtual machine, so you can ssh to it.
+
+Supported feature:
+
+- Configurable base image
+- Create a docker container and redirect you in
 
 #### DigitalOcean Provider
 
-This Provider will create [Droplet](https://docs.digitalocean.com/products/droplets/) from DigitalOcean.
+This Provider will create
+[Droplet](https://docs.digitalocean.com/products/droplets/) from DigitalOcean.
 
 Supported Features:
 
@@ -145,7 +165,8 @@ Supported Features:
 
 #### Linode Provider
 
-This Provider will create [Node](https://www.linode.com/docs/products/compute/) from Linode.
+This Provider will create [Node](https://www.linode.com/docs/products/compute/)
+from Linode.
 
 Supported Features:
 

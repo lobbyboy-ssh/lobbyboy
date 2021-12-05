@@ -1,5 +1,10 @@
 ## Coming Next
 
+- feature: support docker containers now! This is based on
+  [footloose](https://github.com/weaveworks/footloose), it can create docker
+  containers (or [ignite](https://github.com/weaveworks/ignite)) acting like a
+  virtual machine, which can let you ssh to it.
+
 ## 0.3.0
 
 - feature: while waiting for providers doing the work for you (like creating a
