@@ -118,8 +118,8 @@ favorite_instance_types = [
 
 [provider.footloose]
 load_module = "lobbyboy.contrib.provider.footloose::FootlooseProvider"
-min_life_to_live = "1h"
-bill_time_unit = "1h"
+min_life_to_live = "5m"
+bill_time_unit = "5m"
 footloose_config = """
 cluster:
   name: footloose-{server_name}
@@ -129,7 +129,7 @@ machines:
   spec:
     backend: docker
     image: quay.io/footloose/centos7:latest
-    name: {server-name}
+    name: {server_name}%d
     portMappings:
     - containerPort: 22
 """

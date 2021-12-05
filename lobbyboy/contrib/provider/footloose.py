@@ -42,15 +42,18 @@ class FootlooseProvider(BaseProvider):
         logger.debug("footloose create process: %s", footloose_create.pid)
 
         def footloose_create_done():
-            return footloose_create.poll() == 0
+            return footloose_create.poll() is not None
 
         self.time_process_action(channel, footloose_create_done)
+        if footloose_create.returncode != 0:
+            raise FootlooseException("footloose create failed!")
         return LBServerMeta(
             provider_name=self.name, server_name=server_name, workspace=server_workspace, server_host="127.0.0.1"
         )
 
     def ssh_server_command(self, meta: LBServerMeta, pri_key_path: Path = None) -> List[str]:
-        command = ["footloose", "ssh", "-c", meta.workspace.joinpath("footloose.yaml"), "root@" + meta.server_name]
+        command = ["cd {} && footloose ssh root@{}".format(meta.workspace, meta.server_name + "0")]
+
         logger.debug("get ssh to server command for footloose: %s", command)
         return command
 
