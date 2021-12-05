@@ -1,6 +1,6 @@
-import json
-import logging
 import time
+import logging
+from pathlib import Path
 from collections import OrderedDict
 from dataclasses import dataclass, replace, field, fields, asdict
 from json import JSONDecodeError
@@ -44,6 +44,7 @@ class LBConfigProvider:
 
     # todo unique configuration of each provider
     vagrantfile: str = None
+    footloose_config: str = None
 
 
 @dataclass

@@ -115,3 +115,21 @@ bill_time_unit = "1h"
 favorite_instance_types = [
    "ap-south:g6-nanode-1:linode/centos7",
 ]
+
+[provider.footloose]
+load_module = "lobbyboy.contrib.provider.footloose::FootlooseProvider"
+min_life_to_live = "1h"
+bill_time_unit = "1h"
+footloose_config = """
+cluster:
+  name: footloose-{server_name}
+  privateKey: cluster-key
+machines:
+- count: 1
+  spec:
+    backend: docker
+    image: quay.io/footloose/centos7:latest
+    name: {server-name}
+    portMappings:
+    - containerPort: 22
+"""
