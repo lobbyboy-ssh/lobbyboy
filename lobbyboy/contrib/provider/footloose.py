@@ -35,7 +35,7 @@ class FootlooseProvider(BaseProvider):
         logger.info(f"create {self.name} server {server_name} workspace: {server_workspace}.")
         send_to_channel(channel, f"Generate server {server_name} workspace {server_workspace} done.")
 
-        with open(server_workspace.joinpath("footloose.yaml", "w+")) as f:
+        with open(server_workspace.joinpath("footloose.yaml"), "w+") as f:
             f.write(self.provider_config.footloose_config.format(server_name=server_name))
 
         footloose_create = subprocess.Popen(["footloose", "create"], cwd=str(server_workspace))
