@@ -118,8 +118,8 @@ favorite_instance_types = [
 
 [provider.footloose]
 load_module = "lobbyboy.contrib.provider.footloose::FootlooseProvider"
-min_life_to_live = "5m"
-bill_time_unit = "5m"
+min_life_to_live = "0"
+bill_time_unit = "0"
 footloose_config = """
 cluster:
   name: footloose-{server_name}
