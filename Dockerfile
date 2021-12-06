@@ -1,14 +1,19 @@
 FROM python:3.9-slim as builder
 
+RUN apt update && apt install -y gcc libkrb5-dev
 RUN pip3 install poetry && poetry config virtualenvs.in-project true
 WORKDIR /app
-COPY lobbyboy/ /app/lobbyboy/
 COPY poetry.lock .
 COPY pyproject.toml .
-RUN poetry install
+RUN poetry install --no-dev --no-root
+COPY lobbyboy/ /app/lobbyboy/
+RUN .venv/bin/pip install --no-deps .
+
 
 FROM python:3.9-slim
 
 WORKDIR /app
 COPY --from=builder /app/.venv/ .venv/
-CMD [ "/app/.venv/bin/lobbyboy", "-c", "data/config.toml" ]
+ENV PATH ".venv/bin:$PATH"
+EXPOSE 12200
+CMD [ "/app/.venv/bin/lobbyboy-server", "-c", "/app/dev_datadir/config.toml" ]
