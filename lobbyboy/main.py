@@ -14,7 +14,7 @@ from lobbyboy.config import LBConfig, load_config, LBConfigProvider
 from lobbyboy.provider import BaseProvider
 from lobbyboy.socket_handle import SocketHandlerThread
 from lobbyboy.server_killer import ServerKiller
-from lobbyboy.utils import confirm_host_private_key, to_seconds
+from lobbyboy.utils import confirm_ssh_key_pair, to_seconds
 
 # TODO generate all keys when start, if key not exist.
 # TODO fix server threading problems (no sleep!)
@@ -102,8 +102,7 @@ def main():
 
     # setup log
     setup_logs(logging.getLevelName(config.log_level))
-    key_path = config.data_dir / "ssh_host_rsa_key"
-    confirm_host_private_key(key_path)
+    confirm_ssh_key_pair(config.data_dir, key_name="ssh_host_rsa_key")
     # init provider
     providers: Dict[str, BaseProvider] = load_providers(config.provider, config.data_dir)
     # prepare socket
