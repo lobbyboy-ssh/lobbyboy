@@ -13,21 +13,21 @@
 
 <!-- vim-markdown-toc GFM -->
 
-* [What is lobbyboy?](#what-is-lobbyboy)
-* [Key Features](#key-features)
-* [Installation](#installation)
-  * [Systemd Example](#systemd-example)
-  * [Run in Docker](#run-in-docker)
-* [Providers](#providers)
-  * [Builtin Providers](#builtin-providers)
-    * [Vagrant Provider](#vagrant-provider)
-    * [Footloose Provider](#footloose-provider)
-    * [DigitalOcean Provider](#digitalocean-provider)
-    * [Linode Provider](#linode-provider)
-  * [Write Your Own Providers](#write-your-own-providers)
-  * [Publish Your Own Providers](#publish-your-own-providers)
-* [FAQ](#faq)
-* [I Want to Know More!](#i-want-to-know-more)
+- [What is lobbyboy?](#what-is-lobbyboy)
+- [Key Features](#key-features)
+- [Installation](#installation)
+  - [Systemd Example](#systemd-example)
+  - [Run in Docker](#run-in-docker)
+- [Providers](#providers)
+  - [Builtin Providers](#builtin-providers)
+    - [Vagrant Provider](#vagrant-provider)
+    - [Footloose Provider](#footloose-provider)
+    - [DigitalOcean Provider](#digitalocean-provider)
+    - [Linode Provider](#linode-provider)
+  - [Write Your Own Providers](#write-your-own-providers)
+  - [Publish Your Own Providers](#publish-your-own-providers)
+- [FAQ](#faq)
+- [I Want to Know More!](#i-want-to-know-more)
 
 <!-- vim-markdown-toc -->
 
@@ -85,11 +85,13 @@ Run server
 lobbyboy-server -c config.toml
 ```
 
+Add the content of pubkey at `dev_datadir/.ssh/id_rsa.pub` to the end of `authorized_keys` under `[user.Gustave]` table.
+
 You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default
 config. You can ssh to Lobbyboy via:
 
 ```bash
-ssh Gustave@127.0.0.1 -p 12200 -i dev_datadir/test_id_rsa
+ssh Gustave@127.0.0.1 -p 12200 -i dev_datadir/.ssh/id_rsa
 Welcome to Lobbyboy 0.2.2!
 There are 1 available servers:
   0 - Create a new server...
@@ -104,7 +106,23 @@ systemd/[supervisord](http://supervisord.org/) or put it into a docker.
 
 ### Run in Docker
 
-// TBD
+```bash
+mkdir lobbyboy_data
+# Generate a config file
+docker run --rm ghcr.io/laixintao/lobbyboy lobbyboy-config-example > lobbyboy_data/config.toml
+# Generate an ssh key pair
+mkdir lobbyboy_data/.ssh
+ssh-keygen -f lobbyboy_data/.ssh/id_rsa
+...
+# Run the docker container
+docker run -v `pwd`/lobbyboy_data/:/app/dev_datadir -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
+```
+
+The lobbyboy server should be active on 12200 port and you can connect to it with
+
+```
+ssh Gustave@127.0.0.1 -p 12200 -i lobbyboy_data/.ssh/id_rsa
+```
 
 ## Providers
 
@@ -189,7 +207,7 @@ VPS vendors.
 To make a new Provider work, you need to extend base class
 `lobbyboy.provider.BaseProvider``, implement 2 methods:
 
-```
+```python
     def create_server(self, channel: Channel) -> LBServerMeta:
         """
         Args:
@@ -221,7 +239,7 @@ Those 3 configs are obligatory, as lobbyboy has to know when should he destroy
 your spare servers. You can add more configs, and read them from
 `self.provider_config` from code, just remember to add docs about it :)
 
-```
+```toml
 [provider.<your provider name>]
 load_module = "lobbyboy.contrib.provider.<your provider module name>::<Provider Class>"
 min_life_to_live = "1h"
