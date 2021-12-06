@@ -7,7 +7,9 @@
 >
 > <p align='right'>--The Grand Budapest Hotel</p>
 
-[![Test](https://github.com/laixintao/lobbyboy/actions/workflows/unittest.yaml/badge.svg)](https://github.com/laixintao/lobbyboy/actions/workflows/unittest.yaml)
+[![Test](https://github.com/lobbyboy-ssh/lobbyboy/actions/workflows/unittest.yaml/badge.svg?branch=main)](https://github.com/lobbyboy-ssh/lobbyboy/actions/workflows/unittest.yaml)
+<a href="https://badge.fury.io/py/lobbyboy"><img src="https://badge.fury.io/py/lobbyboy.svg" alt="PyPI version"></a>
+<img src="https://badgen.net/badge/python/3.7%20%7C%203.8%20%7C%203.9/" alt="Python version">
 
 **This project is still under testing, it worked but may have bugs.**
 
