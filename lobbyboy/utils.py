@@ -160,8 +160,8 @@ class KeyTypeSupport(Enum):
     # openssh ssh-keygen: The default length is 3072 bits (RSA) or 256 bits (ECDSA).
     # todo default length of DSS/ED25519
     RSA = "RSA", 3072
-    DSS = "DSS"
-    ED25519 = "ED25519"
+    DSS = "DSS", 1024
+    ED25519 = "ED25519", 256
     ECDSA = "ECDSA", 256
 
     def __init__(self, key, default_key_length=None):
@@ -183,6 +183,16 @@ def confirm_ssh_key_pair(key_type: KeyTypeSupport = KeyTypeSupport.RSA, key_len:
     if not save_path:
         return pri_key, pub_key
     return write_key_to_file(pri_key, pub_key, key_type=key_type, save_path=save_path)
+
+
+def confirm_host_private_key(key_path: Path):
+    if not key_path.exists():
+        logger.warn("Host key do not exist, generate to {}...".format(str(key_path)))
+        rsa_key = paramiko.RSAKey.generate(KeyTypeSupport.RSA.default_key_length)
+        if not key_path.exists():
+            with open(key_path, "w+"):
+                pass
+        rsa_key.write_private_key_file(str(key_path))
 
 
 def generate_ssh_key_pair(key_type: KeyTypeSupport = KeyTypeSupport.RSA, key_len: int = None) -> Tuple[str, str]:
