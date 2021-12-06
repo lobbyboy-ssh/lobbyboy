@@ -177,7 +177,7 @@ class KeyTypeSupport(Enum):
 def confirm_ssh_key_pair(
     save_path: Path, key_type: KeyTypeSupport = KeyTypeSupport.RSA, key_len: int = None, key_name: str = None
 ):
-    pri_key, pub_key = try_load_key_from_file(from_path=save_path, key_type=key_type)
+    pri_key, pub_key = try_load_key_from_file(from_path=save_path, key_type=key_type, key_name=key_name)
     if pri_key and pub_key:
         return pri_key, pub_key
 
