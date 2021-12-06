@@ -14,7 +14,7 @@ from lobbyboy.config import LBConfig, load_config, LBConfigProvider
 from lobbyboy.provider import BaseProvider
 from lobbyboy.socket_handle import SocketHandlerThread
 from lobbyboy.server_killer import ServerKiller
-from lobbyboy.utils import confirm_host_private_key, confirm_ssh_key_pair, to_seconds
+from lobbyboy.utils import confirm_host_private_key, to_seconds
 
 # TODO generate all keys when start, if key not exist.
 # TODO fix server threading problems (no sleep!)
