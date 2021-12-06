@@ -128,8 +128,8 @@ class BaseProvider(ABC):
     def collection_ssh_keys(self, generate: bool = True, save_path: Path = None) -> List[str]:
         ssh_keys = self.provider_config.extra_ssh_keys[::] or []
         if generate:
-            ssh_key_path = (save_path=save_path or self.workspace).joinpath(".ssh")
-            _, pub_key = confirm_ssh_key_pair(ssh_key_path)
+            ssh_key_path = (save_path or self.workspace).joinpath(".ssh")
+            _, pub_key = confirm_ssh_key_pair(save_path=ssh_key_path)
             ssh_keys.append(pub_key)
         return ssh_keys
 
