@@ -110,14 +110,7 @@ systemd/[supervisord](http://supervisord.org/) or put it into a docker.
 
 ```bash
 mkdir lobbyboy_data
-# Generate a config file
-docker run --rm ghcr.io/laixintao/lobbyboy lobbyboy-config-example > lobbyboy_data/config.toml
-# Generate an ssh key pair
-mkdir lobbyboy_data/.ssh
-ssh-keygen -f lobbyboy_data/.ssh/id_rsa
-...
-# Run the docker container
-docker run -v `pwd`/lobbyboy_data/:/app/dev_datadir -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
+docker run -v `pwd`/lobbyboy_data:/app/dev_datadir -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
 ```
 
 The lobbyboy server should be active on 12200 port and you can connect to it with
@@ -125,6 +118,8 @@ The lobbyboy server should be active on 12200 port and you can connect to it wit
 ```
 ssh Gustave@127.0.0.1 -p 12200 -i lobbyboy_data/.ssh/id_rsa
 ```
+
+You can change the config at `lobbyboy_data/config.toml` and restart the docker.
 
 ## Providers
 

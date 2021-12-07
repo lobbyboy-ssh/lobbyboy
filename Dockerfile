@@ -14,6 +14,8 @@ FROM python:3.9-slim
 
 WORKDIR /app
 COPY --from=builder /app/.venv/ .venv/
+COPY dev_datadir/ dev_datadir/
 ENV PATH ".venv/bin:$PATH"
+RUN lobbyboy-config-example > dev_datadir/config.toml
 EXPOSE 12200
-CMD [ "/app/.venv/bin/lobbyboy-server", "-c", "/app/dev_datadir/config.toml" ]
+CMD [ "/app/.venv/bin/lobbyboy-server", "-c", "dev_datadir/config.toml" ]
