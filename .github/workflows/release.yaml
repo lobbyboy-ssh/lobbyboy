@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-python@v1
         with:
           python-version: 3.7
-          architecture: 'x64'
+          architecture: "x64"
       - name: Cache venv
         uses: actions/cache@v1
         with:
@@ -61,3 +61,28 @@ jobs:
           release_name: ${{ github.ref }}
           draft: false
           prerelease: false
+
+  push-iamge:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: lobbyboy
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME
+
+      - name: Log in to registry
+        # This is where you will update the PAT to GITHUB_TOKEN
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+          VERSION=latest
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION

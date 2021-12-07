@@ -1,4 +1,3 @@
-from io import StringIO
 from typing import OrderedDict, Tuple, Optional
 
 import os
@@ -6,6 +5,7 @@ import socket
 import threading
 import select
 import logging
+from io import StringIO
 from binascii import hexlify
 from typing import Dict
 
@@ -125,7 +125,7 @@ class SocketHandlerThread(threading.Thread):
             logger.error("(Failed to load moduli -- gex will be unsupported.)")
             raise
 
-        pri, _ = confirm_ssh_key_pair(key_type=key_type, save_path=self.config.data_dir)
+        pri, _ = confirm_ssh_key_pair(key_type=key_type, save_path=self.config.data_dir, key_name="ssh_host_rsa_key")
         host_key = paramiko.RSAKey.from_private_key(StringIO(pri))
 
         logger.info("Read host key: " + hexlify(host_key.get_fingerprint()).decode())

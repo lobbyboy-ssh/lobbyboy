@@ -102,8 +102,7 @@ def main():
 
     # setup log
     setup_logs(logging.getLevelName(config.log_level))
-    # confirmation local private key
-    confirm_ssh_key_pair(save_path=config.data_dir)
+    confirm_ssh_key_pair(config.data_dir, key_name="ssh_host_rsa_key")
     # init provider
     providers: Dict[str, BaseProvider] = load_providers(config.provider, config.data_dir)
     # prepare socket

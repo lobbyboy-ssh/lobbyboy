@@ -15,21 +15,21 @@
 
 <!-- vim-markdown-toc GFM -->
 
-* [What is lobbyboy?](#what-is-lobbyboy)
-* [Key Features](#key-features)
-* [Installation](#installation)
-  * [Systemd Example](#systemd-example)
-  * [Run in Docker](#run-in-docker)
-* [Providers](#providers)
-  * [Builtin Providers](#builtin-providers)
-    * [Vagrant Provider](#vagrant-provider)
-    * [Footloose Provider](#footloose-provider)
-    * [DigitalOcean Provider](#digitalocean-provider)
-    * [Linode Provider](#linode-provider)
-  * [Write Your Own Providers](#write-your-own-providers)
-  * [Publish Your Own Providers](#publish-your-own-providers)
-* [FAQ](#faq)
-* [I Want to Know More!](#i-want-to-know-more)
+- [What is lobbyboy?](#what-is-lobbyboy)
+- [Key Features](#key-features)
+- [Installation](#installation)
+  - [Systemd Example](#systemd-example)
+  - [Run in Docker](#run-in-docker)
+- [Providers](#providers)
+  - [Builtin Providers](#builtin-providers)
+    - [Vagrant Provider](#vagrant-provider)
+    - [Footloose Provider](#footloose-provider)
+    - [DigitalOcean Provider](#digitalocean-provider)
+    - [Linode Provider](#linode-provider)
+  - [Write Your Own Providers](#write-your-own-providers)
+  - [Publish Your Own Providers](#publish-your-own-providers)
+- [FAQ](#faq)
+- [I Want to Know More!](#i-want-to-know-more)
 
 <!-- vim-markdown-toc -->
 
@@ -74,14 +74,16 @@ Install via pip:
 pip install lobbyboy
 ```
 
-Then generate config file:
+## Run server
+
+First, generate a config file:
 
 ```bash
 lobbyboy-config-example > config.toml
 # Edit your config before running!
 ```
 
-Run server
+Run the server with:
 
 ```bash
 lobbyboy-server -c config.toml
@@ -91,7 +93,8 @@ You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default
 config. You can ssh to Lobbyboy via:
 
 ```bash
-ssh Gustave@127.0.0.1 -p 12200 -i dev_datadir/test_id_rsa
+ssh Gustave@127.0.0.1 -p 12200
+# Enter the default password "Fiennes"(without quotes)
 Welcome to Lobbyboy 0.2.2!
 There are 1 available servers:
   0 - Create a new server...
@@ -99,14 +102,60 @@ There are 1 available servers:
 Please input your choice (number):
 ```
 
+You may want to change the password in `config.toml` or use a public key for authentication.
+The latter is recommended in a production environment.
+
+### Generate a key pair for authentication
+
+Generate a key pair:
+
+```bash
+ssh-keygen -f lobbyboy_key
+```
+
+Add the content of `lobbyboy_key.pub` to the end of `authorized_keys` under `[user.Gustave]` table.
+Now you can ssh to the lobbyboy server via:
+
+```bash
+ssh Gustave@127.0.0.1 -i lobbyboy_key
+```
+
+## Deployment
+
 Lobbyboy is supposed to be a server daemon, so you can manage it by
 systemd/[supervisord](http://supervisord.org/) or put it into a docker.
 
 ### Systemd Example
 
+```ini
+[Unit]
+Description=Lobbyboy Server
+
+[Service]
+User=me
+Group=me
+ExecStart=/path/to/lobbyboy-server -c /path/to/lobbyboy/config.toml
+Restart=on-failure
+WorkingDirectory=/path/to/lobbyboy/
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ### Run in Docker
 
-// TBD
+```bash
+# Generate a config file
+docker run --rm ghcr.io/laixintao/lobbyboy lobbyboy-config-example > lobbyboy_config.toml
+# Run the docker container
+docker run -v `pwd`/lobbyboy_config.toml:/app/config.toml -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
+```
+
+The lobbyboy server should be active on 12200 port and you can connect to it with
+
+```
+ssh Gustave@127.0.0.1 -p 12200
+```
 
 ## Providers
 
@@ -191,7 +240,7 @@ VPS vendors.
 To make a new Provider work, you need to extend base class
 `lobbyboy.provider.BaseProvider``, implement 2 methods:
 
-```
+```python
     def create_server(self, channel: Channel) -> LBServerMeta:
         """
         Args:
@@ -223,7 +272,7 @@ Those 3 configs are obligatory, as lobbyboy has to know when should he destroy
 your spare servers. You can add more configs, and read them from
 `self.provider_config` from code, just remember to add docs about it :)
 
-```
+```toml
 [provider.<your provider name>]
 load_module = "lobbyboy.contrib.provider.<your provider module name>::<Provider Class>"
 min_life_to_live = "1h"

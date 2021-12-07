@@ -160,8 +160,8 @@ class KeyTypeSupport(Enum):
     # openssh ssh-keygen: The default length is 3072 bits (RSA) or 256 bits (ECDSA).
     # todo default length of DSS/ED25519
     RSA = "RSA", 3072
-    DSS = "DSS"
-    ED25519 = "ED25519"
+    DSS = "DSS", 1024
+    ED25519 = "ED25519", 256
     ECDSA = "ECDSA", 256
 
     def __init__(self, key, default_key_length=None):
@@ -174,15 +174,17 @@ class KeyTypeSupport(Enum):
         return self._key
 
 
-def confirm_ssh_key_pair(key_type: KeyTypeSupport = KeyTypeSupport.RSA, key_len: int = None, save_path: Path = None):
-    pri_key, pub_key = try_load_key_from_file(from_path=save_path, key_type=key_type)
+def confirm_ssh_key_pair(
+    save_path: Path, key_type: KeyTypeSupport = KeyTypeSupport.RSA, key_len: int = None, key_name: str = None
+):
+    pri_key, pub_key = try_load_key_from_file(from_path=save_path, key_type=key_type, key_name=key_name)
     if pri_key and pub_key:
         return pri_key, pub_key
 
     pri_key, pub_key = generate_ssh_key_pair(key_type=key_type, key_len=key_len)
     if not save_path:
         return pri_key, pub_key
-    return write_key_to_file(pri_key, pub_key, key_type=key_type, save_path=save_path)
+    return write_key_to_file(pri_key, pub_key, key_type=key_type, save_path=save_path, key_name=key_name)
 
 
 def generate_ssh_key_pair(key_type: KeyTypeSupport = KeyTypeSupport.RSA, key_len: int = None) -> Tuple[str, str]:
@@ -207,11 +209,14 @@ def generate_ssh_key_pair(key_type: KeyTypeSupport = KeyTypeSupport.RSA, key_len
     return out.getvalue(), f"{key.get_name()} {key.get_base64()}"
 
 
-def write_key_to_file(pri_key: str, pub_key: str, key_type: KeyTypeSupport, save_path: Path) -> Tuple[str, str]:
-    save_path = save_path.joinpath(".ssh")
+def write_key_to_file(
+    pri_key: str, pub_key: str, key_type: KeyTypeSupport, save_path: Path, key_name: str = None
+) -> Tuple[str, str]:
     save_path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    private_key_file = save_path.joinpath(f"id_{key_type.key.lower()}")
-    public_key_file = save_path.joinpath(f"id_{key_type.key.lower()}.pub")
+    if not key_name:
+        key_name = f"id_{key_type.key.lower()}"
+    private_key_file = save_path.joinpath(key_name)
+    public_key_file = save_path.joinpath(f"{key_name}.pub")
 
     if private_key_file.exists() and public_key_file.exists():
         logger.info(f"ssh key pair exists: {private_key_file}/{public_key_file}, skip generation.")
@@ -226,10 +231,13 @@ def write_key_to_file(pri_key: str, pub_key: str, key_type: KeyTypeSupport, save
     return pri_key, pub_key
 
 
-def try_load_key_from_file(from_path: Path, key_type: KeyTypeSupport, raise_error: bool = False) -> Tuple[str, str]:
-    from_path = from_path.joinpath(".ssh")
-    private_key_file = from_path.joinpath(f"id_{key_type.key.lower()}")
-    public_key_file = from_path.joinpath(f"id_{key_type.key.lower()}.pub")
+def try_load_key_from_file(
+    from_path: Path, key_type: KeyTypeSupport, raise_error: bool = False, key_name: str = None
+) -> Tuple[str, str]:
+    if not key_name:
+        key_name = f"id_{key_type.key.lower()}"
+    private_key_file = from_path.joinpath(key_name)
+    public_key_file = from_path.joinpath(f"{key_name}.pub")
 
     pri_key = pub_key = ""
     if private_key_file.exists():

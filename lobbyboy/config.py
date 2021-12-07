@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LBConfigUser:
     authorized_keys: str = None
-    password: bool = None
+    password: Optional[str] = None
 
     def auth_key_pairs(self) -> List[Tuple]:
         """
