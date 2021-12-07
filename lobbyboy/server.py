@@ -39,8 +39,11 @@ class Server(paramiko.ServerInterface):
         return paramiko.common.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
-        # TODO load config file every time.
-        if (username == "foo") and (password == "bar"):
+        logger.warning(
+            "Using password for authentication is considered unsafe in production, please use a publickey instead."
+        )
+        config = self.config.reload()
+        if username in config.user and password == config.user[username].password:
             return paramiko.common.AUTH_SUCCESSFUL
         return paramiko.common.AUTH_FAILED
 

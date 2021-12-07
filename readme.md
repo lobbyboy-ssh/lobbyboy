@@ -74,26 +74,27 @@ Install via pip:
 pip install lobbyboy
 ```
 
-Then generate config file:
+## Run server
+
+First, generate a config file:
 
 ```bash
 lobbyboy-config-example > config.toml
 # Edit your config before running!
 ```
 
-Run server
+Run the server with:
 
 ```bash
 lobbyboy-server -c config.toml
 ```
 
-Add the content of pubkey at `dev_datadir/.ssh/id_rsa.pub` to the end of `authorized_keys` under `[user.Gustave]` table.
-
 You can ssh to Lobbyboy now, if you keep the default user `Gustave` in default
 config. You can ssh to Lobbyboy via:
 
 ```bash
-ssh Gustave@127.0.0.1 -p 12200 -i dev_datadir/.ssh/id_rsa
+ssh Gustave@127.0.0.1 -p 12200
+# Enter the default password "Fiennes"(without quotes)
 Welcome to Lobbyboy 0.2.2!
 There are 1 available servers:
   0 - Create a new server...
@@ -101,25 +102,60 @@ There are 1 available servers:
 Please input your choice (number):
 ```
 
+You may want to change the password in `config.toml` or use a public key for authentication.
+The latter is recommended in a production environment.
+
+### Generate a key pair for authentication
+
+Generate a key pair:
+
+```bash
+ssh-keygen -f lobbyboy_key
+```
+
+Add the content of `lobbyboy_key.pub` to the end of `authorized_keys` under `[user.Gustave]` table.
+Now you can ssh to the lobbyboy server via:
+
+```bash
+ssh Gustave@127.0.0.1 -i lobbyboy_key
+```
+
+## Deployment
+
 Lobbyboy is supposed to be a server daemon, so you can manage it by
 systemd/[supervisord](http://supervisord.org/) or put it into a docker.
 
 ### Systemd Example
 
+```ini
+[Unit]
+Description=Lobbyboy Server
+
+[Service]
+User=me
+Group=me
+ExecStart=/path/to/lobbyboy-server -c /path/to/lobbyboy/config.toml
+Restart=on-failure
+WorkingDirectory=/path/to/lobbyboy/
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ### Run in Docker
 
 ```bash
-mkdir lobbyboy_data
-docker run -v `pwd`/lobbyboy_data:/app/dev_datadir -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
+# Generate a config file
+docker run --rm ghcr.io/laixintao/lobbyboy lobbyboy-config-example > lobbyboy_config.toml
+# Run the docker container
+docker run -v `pwd`/lobbyboy_config.toml:/app/config.toml -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
 ```
 
 The lobbyboy server should be active on 12200 port and you can connect to it with
 
 ```
-ssh Gustave@127.0.0.1 -p 12200 -i lobbyboy_data/.ssh/id_rsa
+ssh Gustave@127.0.0.1 -p 12200
 ```
-
-You can change the config at `lobbyboy_data/config.toml` and restart the docker.
 
 ## Providers
 
