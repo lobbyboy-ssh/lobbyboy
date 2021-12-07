@@ -138,3 +138,6 @@ dmypy.json
 cython_debug/
 dev_datadir/*
 .idea
+
+# local config files
+config.toml

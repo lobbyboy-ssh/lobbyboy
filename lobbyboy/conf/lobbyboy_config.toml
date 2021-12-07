@@ -133,3 +133,8 @@ machines:
     portMappings:
     - containerPort: 22
 """
+
+[provider.ignite]
+load_module = "lobbyboy.contrib.provider.ignite::IgniteProvider"
+min_life_to_live = "0"
+bill_time_unit = "0"
