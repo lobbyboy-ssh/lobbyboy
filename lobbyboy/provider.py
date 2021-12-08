@@ -22,6 +22,8 @@ SERVER_FILE = "server.json"
 
 
 class BaseProvider(ABC):
+    config = LBConfigProvider
+
     def __init__(self, name: str, config: LBConfigProvider, workspace: Path):
         self.name: str = name
         self.provider_config: LBConfigProvider = config

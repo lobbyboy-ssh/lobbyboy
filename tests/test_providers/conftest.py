@@ -1,6 +1,6 @@
-from lobbyboy.config import LBConfigProvider, LBServerMeta
+from lobbyboy.config import LBServerMeta
 import shutil
-from lobbyboy.contrib.provider.footloose import FootlooseProvider
+from lobbyboy.contrib.provider.footloose import FootlooseProvider, FootlooseConfig
 import pytest
 from pathlib import Path
 
@@ -9,7 +9,7 @@ from pathlib import Path
 def footloose_provider():
     workspace = Path("/tmp/footloose_test/")
     shutil.rmtree(workspace, ignore_errors=True)
-    return FootlooseProvider(name="footloose", config=LBConfigProvider(), workspace=Path("/tmp/footloose_test/"))
+    return FootlooseProvider(name="footloose", config=FootlooseConfig(), workspace=Path("/tmp/footloose_test/"))
 
 
 @pytest.fixture
