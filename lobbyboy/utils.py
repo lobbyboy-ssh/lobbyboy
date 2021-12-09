@@ -83,10 +83,23 @@ def humanize_seconds(seconds: int):
     return str(timedelta(seconds=seconds))
 
 
-def send_to_channel(channel: Channel, msg: str = "", prefix: str = "", suffix: str = "\r\n"):
-    if isinstance(msg, bytes):
-        msg = msg.decode()
-    channel.send(f"{prefix or ''}{msg}{suffix or ''}".encode())
+def ensure_bytes(s: Union[str, bytes]) -> bytes:
+    if isinstance(s, str):
+        return s.encode()
+    return s
+
+
+def send_to_channel(
+    channel: Channel, msg: Union[str, bytes] = b"", prefix: Union[str, bytes] = b"", suffix: Union[str, bytes] = b"\r\n"
+):
+    msg = ensure_bytes(msg)
+    prefix = ensure_bytes(prefix)
+    suffix = ensure_bytes(suffix)
+
+    buf = bytearray(prefix)
+    buf.extend(msg)
+    buf.extend(suffix)
+    channel.sendall(buf)
 
 
 def confirm_dc_type(value: Any, should_be: Type):
@@ -118,7 +131,7 @@ def choose_option(channel: Channel, options: List[str], option_prompt: str = Non
     for index, option in enumerate(options):
         send_to_channel(channel, f"{index:>3} - {option}")
     _ask_prompt = ask_prompt or f"Please enter the number of choice[{0}-{len(options) - 1}]: "
-    send_to_channel(channel, _ask_prompt, suffix="")
+    send_to_channel(channel, _ask_prompt, suffix=b"")
 
     result = read_user_input_line(channel)
     try:
@@ -147,10 +160,10 @@ def read_user_input_line(channel) -> str:
             send_to_channel(channel)
             break
         elif content in [b"\x7f"]:
-            send_to_channel(channel, "\x08\x1b[K", suffix="")
+            send_to_channel(channel, "\x08\x1b[K", suffix=b"")
             continue
         else:
-            send_to_channel(channel, content, suffix="")
+            send_to_channel(channel, content, suffix=b"")
             chars.append(content)
     return b"".join(chars).decode()
 

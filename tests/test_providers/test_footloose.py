@@ -36,12 +36,12 @@ def test_create_server(mock_popen, footloose_provider):
     server = footloose_provider.create_server(mock_channel)
 
     mock_popen.assert_called_with(["footloose", "create"], cwd="/tmp/footloose_test/2012-01-14-1200")
-    assert mock_channel.send.mock_calls[:3] == [
+    assert mock_channel.sendall.mock_calls[:3] == [
         call(b"Generate server 2012-01-14-1200 workspace /tmp/footloose_test/2012-01-14-1200 done.\r\n"),
         call(b"Check footloose create done"),
         call(b"."),
     ]
-    assert re.match(br"OK\(\d.\ds\).\r\n", mock_channel.send.mock_calls[-1][1][0]) is not None
+    assert re.match(br"OK\(\d.\ds\).\r\n", mock_channel.sendall.mock_calls[-1][1][0]) is not None
     assert server == LBServerMeta(
         provider_name="footloose",
         workspace=Path("/tmp/footloose_test/2012-01-14-1200"),
