@@ -49,6 +49,8 @@ def load_providers(provider_configs: Dict[str, LBConfigProvider], head_workspace
 
     head_workspace.mkdir(parents=True, exist_ok=True)
     for name, config in provider_configs.items():
+        if not config.enable:
+            continue
         module_path, classname = config.load_module.split("::", maxsplit=1)
         logger.debug(f"loading path: {module_path}, classname: {classname}")
 

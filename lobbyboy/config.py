@@ -35,6 +35,7 @@ class LBConfigUser:
 @dataclass
 class LBConfigProvider:
     load_module: str = None
+    enable: bool = True
     min_life_to_live: str = None
     bill_time_unit: str = None
     api_token: str = None
