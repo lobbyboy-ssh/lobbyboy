@@ -22,6 +22,9 @@ password = "Fiennes"
 [provider.digitalocean]
 load_module = "lobbyboy.contrib.provider.digitalocean::DigitalOceanProvider"
 
+# set to false to disable this provider
+enable = true
+
 # lobbyboy will destroy the server for you.
 # when:
 # 1. there is no active session(if you ssh to that server bot throughing
@@ -82,6 +85,7 @@ favorite_instance_types = [
 
 [provider.vagrant]
 load_module = "lobbyboy.contrib.provider.vagrant::VagrantProvider"
+enable = true
 min_life_to_live = "1h"
 bill_time_unit = "1h"
 
@@ -100,6 +104,7 @@ end
 
 [provider.linode]
 load_module = "lobbyboy.contrib.provider.linode::LinodeProvider"
+enable = true
 min_life_to_live = "1h"
 bill_time_unit = "1h"
 
@@ -117,6 +122,7 @@ favorite_instance_types = [
 
 [provider.footloose]
 load_module = "lobbyboy.contrib.provider.footloose::FootlooseProvider"
+enable = true
 min_life_to_live = "0"
 bill_time_unit = "0"
 footloose_config = """
@@ -135,5 +141,6 @@ machines:
 
 [provider.ignite]
 load_module = "lobbyboy.contrib.provider.ignite::IgniteProvider"
+enable = true
 min_life_to_live = "0"
 bill_time_unit = "0"
