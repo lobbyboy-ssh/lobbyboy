@@ -185,7 +185,7 @@ class SocketHandlerThread(threading.Thread):
         while proxy_subprocess.poll() is None:
             r, *_ = select.select([master_fd, channel_fd], [], [], 0.1)
             if master_fd in r:
-                send_to_channel(self.channel, os.read(master_fd, 10240).decode(), suffix="")
+                send_to_channel(self.channel, os.read(master_fd, 10240), suffix=b"")
             elif channel_fd in r:
                 os.write(master_fd, self.channel.recv(10240))
 

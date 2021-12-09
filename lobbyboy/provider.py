@@ -70,11 +70,11 @@ class BaseProvider(ABC):
         """
         action_name = " ".join(action.__name__.split("_"))
         logger.debug("watch a new action, action_name: %s", action_name)
-        send_to_channel(channel, f"Check {action_name}", suffix="")
+        send_to_channel(channel, f"Check {action_name}", suffix=b"")
         start_at = time.time()
         try_times = 1
         while try_times <= max_check:
-            send_to_channel(channel, ".", suffix="")
+            send_to_channel(channel, ".", suffix=b"")
             res = action(**action_kws)
             if res:
                 send_to_channel(channel, f"OK({round(time.time() - start_at, 2)}s).")
