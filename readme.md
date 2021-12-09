@@ -46,7 +46,7 @@ Vultr, etc), then redirect you to the newly created servers. Of course, if
 lobbyboy finds any servers available already, he will just ask if you want to
 enter the existing server, or still want to create a new one.
 
-![](./docs/images/lobbyboypng)
+![](./docs/images/lobbyboy.png)
 
 ## Key Features
 
