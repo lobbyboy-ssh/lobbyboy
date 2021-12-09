@@ -15,21 +15,25 @@
 
 <!-- vim-markdown-toc GFM -->
 
-- [What is lobbyboy?](#what-is-lobbyboy)
-- [Key Features](#key-features)
-- [Installation](#installation)
-  - [Systemd Example](#systemd-example)
-  - [Run in Docker](#run-in-docker)
-- [Providers](#providers)
-  - [Builtin Providers](#builtin-providers)
-    - [Vagrant Provider](#vagrant-provider)
-    - [Footloose Provider](#footloose-provider)
-    - [DigitalOcean Provider](#digitalocean-provider)
-    - [Linode Provider](#linode-provider)
-  - [Write Your Own Providers](#write-your-own-providers)
-  - [Publish Your Own Providers](#publish-your-own-providers)
-- [FAQ](#faq)
-- [I Want to Know More!](#i-want-to-know-more)
+* [What is lobbyboy?](#what-is-lobbyboy)
+* [Key Features](#key-features)
+* [Installation](#installation)
+* [Run server](#run-server)
+  * [Generate a key pair for authentication](#generate-a-key-pair-for-authentication)
+* [Deployment](#deployment)
+  * [Systemd Example](#systemd-example)
+  * [Run in Docker](#run-in-docker)
+* [Providers](#providers)
+  * [Builtin Providers](#builtin-providers)
+    * [Vagrant Provider](#vagrant-provider)
+    * [Footloose Provider](#footloose-provider)
+    * [DigitalOcean Provider](#digitalocean-provider)
+    * [Linode Provider](#linode-provider)
+    * [Ignite(Firecracker) Provider](#ignitefirecracker-provider)
+  * [Write Your Own Providers](#write-your-own-providers)
+  * [Publish Your Own Providers](#publish-your-own-providers)
+* [FAQ](#faq)
+* [I Want to Know More!](#i-want-to-know-more)
 
 <!-- vim-markdown-toc -->
 
@@ -42,14 +46,7 @@ Vultr, etc), then redirect you to the newly created servers. Of course, if
 lobbyboy finds any servers available already, he will just ask if you want to
 enter the existing server, or still want to create a new one.
 
-```
-                                                       create
- +------------------+          +--------------------+  new server  +--------------------------+
- |                  |          |                    |------------->|                          |
- User(You!)         |--ssh----->    lobbyboy        |              |  DigitalOcean            |
- |                  |          |                    |------------->|  (or any other providers |
- +------------------+          +--------------------+     ssh      +--------------------------+
-```
+![](./docs/images/lobbyboypng)
 
 ## Key Features
 
@@ -102,8 +99,8 @@ There are 1 available servers:
 Please input your choice (number):
 ```
 
-You may want to change the password in `config.toml` or use a public key for authentication.
-The latter is recommended in a production environment.
+You may want to change the password in `config.toml` or use a public key for
+authentication. The latter is recommended in a production environment.
 
 ### Generate a key pair for authentication
 
@@ -113,8 +110,8 @@ Generate a key pair:
 ssh-keygen -f lobbyboy_key
 ```
 
-Add the content of `lobbyboy_key.pub` to the end of `authorized_keys` under `[user.Gustave]` table.
-Now you can ssh to the lobbyboy server via:
+Add the content of `lobbyboy_key.pub` to the end of `authorized_keys` under
+`[user.Gustave]` table. Now you can ssh to the lobbyboy server via:
 
 ```bash
 ssh Gustave@127.0.0.1 -i lobbyboy_key
@@ -151,7 +148,8 @@ docker run --rm ghcr.io/laixintao/lobbyboy lobbyboy-config-example > lobbyboy_co
 docker run -v `pwd`/lobbyboy_config.toml:/app/config.toml -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
 ```
 
-The lobbyboy server should be active on 12200 port and you can connect to it with
+The lobbyboy server should be active on 12200 port and you can connect to it
+with
 
 ```
 ssh Gustave@127.0.0.1 -p 12200
@@ -229,6 +227,13 @@ Supported Features:
 Please see
 [configs](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
 to check available options.
+
+#### Ignite(Firecracker) Provider
+
+Supported Features:
+
+- Create a new Firecracker virtual machine
+- Destroy node when it is not in use.
 
 ![](./docs/images/do-preview.png)
 

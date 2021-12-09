@@ -1,4 +1,8 @@
-## Coming Next
+## 0.4.0
+
+**changelog won't be updated since 0.4.0, please check the release page:**
+
+https://github.com/lobbyboy-ssh/lobbyboy/releases
 
 - feature: support docker containers now! This is based on
   [footloose](https://github.com/weaveworks/footloose), it can create docker
