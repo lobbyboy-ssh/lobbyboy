@@ -1,11 +1,14 @@
 import logging
 from pathlib import Path
-from lobbyboy.config import LBServerMeta
-from lobbyboy.exceptions import ProviderException
+from dataclasses import dataclass
 import subprocess
-from lobbyboy.provider import BaseProvider
-from paramiko import Channel
 from typing import List
+
+from paramiko import Channel
+
+from lobbyboy.config import LBServerMeta, LBConfigProvider
+from lobbyboy.exceptions import ProviderException
+from lobbyboy.provider import BaseProvider
 from lobbyboy.utils import send_to_channel
 
 
@@ -16,7 +19,14 @@ class FootlooseException(ProviderException):
     pass
 
 
+@dataclass
+class FootlooseConfig(LBConfigProvider):
+    footloose_config: str = ""
+
+
 class FootlooseProvider(BaseProvider):
+    config = FootlooseConfig
+
     # TODO add to pre hook
     def check_footloose_executable(self):
         process = subprocess.run(["footloose", "-h"])

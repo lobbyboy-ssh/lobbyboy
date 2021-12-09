@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import logging
 import subprocess
 from pathlib import Path
@@ -13,7 +14,14 @@ from lobbyboy.utils import send_to_channel
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class VagrantConfig(LBConfigProvider):
+    vagrantfile: str = ""
+
+
 class VagrantProvider(BaseProvider):
+    config = VagrantConfig
+
     def __init__(self, name: str, config: LBConfigProvider, workspace: Path):
         super().__init__(name, config, workspace)
         self._tmp_ssh_config_file: Optional[Path] = None

@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import importlib
 from collections import OrderedDict
 from dataclasses import dataclass, replace, field, fields, asdict
 from json import JSONDecodeError
@@ -40,11 +41,6 @@ class LBConfigProvider:
     destroy_safe_time: str = None
     server_name_prefix: str = None
     extra_ssh_keys: List[str] = field(default_factory=list)
-    favorite_instance_types: List[str] = field(default_factory=list)
-
-    # todo unique configuration of each provider
-    vagrantfile: str = None
-    footloose_config: str = ""
 
 
 @dataclass
@@ -105,7 +101,13 @@ class LBConfig:
         if self.data_dir:
             self.data_dir = Path(self.data_dir)
         self.user = {u: confirm_dc_type(config, LBConfigUser) for u, config in self.user.items()}
-        self.provider = {p: confirm_dc_type(config, LBConfigProvider) for p, config in self.provider.items()}
+        for p, config in self.provider.items():
+            # TODO: import provider only once
+            module_path, classname = config["load_module"].split("::", maxsplit=1)
+            module = importlib.import_module(module_path)
+            provider_cls = getattr(module, classname)
+            provider_config_cls = provider_cls.config
+            self.provider[p] = confirm_dc_type(config, provider_config_cls)
 
     def reload(self) -> "LBConfig":
         return load_config(self._file)

@@ -1,5 +1,6 @@
 import os
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Tuple
 
@@ -14,7 +15,14 @@ logger = logging.getLogger(__name__)
 ENV_TOKEN_NAME = "LINODE_TOKEN"
 
 
+@dataclass
+class LinodeConfig(LBConfigProvider):
+    favorite_instance_types: List[str] = field(default_factory=list)
+
+
 class LinodeProvider(BaseProvider):
+    config = LinodeConfig
+
     def __init__(self, name: str, config: LBConfigProvider, workspace: Path):
         super().__init__(name, config, workspace)
         self.__token = os.getenv(ENV_TOKEN_NAME) or config.api_token

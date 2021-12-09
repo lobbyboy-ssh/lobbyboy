@@ -2,10 +2,11 @@ import logging
 from pathlib import Path
 import subprocess
 from typing import List
+from dataclasses import dataclass
 
 from paramiko import Channel
 
-from lobbyboy.config import LBServerMeta
+from lobbyboy.config import LBServerMeta, LBConfigProvider
 from lobbyboy.exceptions import ProviderException
 from lobbyboy.provider import BaseProvider
 from lobbyboy.utils import send_to_channel
@@ -18,7 +19,17 @@ class IgniteException(ProviderException):
     pass
 
 
+@dataclass
+class IgniteConfig(LBConfigProvider):
+    image: str = "weaveworks/ignite-ubuntu"
+    cpu: int = 1
+    mem: str = "1GB"
+    disk: str = "5GB"
+
+
 class IgniteProvider(BaseProvider):
+    config = IgniteConfig
+
     # TODO add to pre hook
     def check_ignite_executable(self):
         process = subprocess.run(["ignite", "-h"])
@@ -44,15 +55,15 @@ class IgniteProvider(BaseProvider):
             [
                 "ignite",
                 "run",
-                "weaveworks/ignite-ubuntu",
+                self.provider_config.image,
                 "--name",
                 server_name,
                 "--cpus",
-                "1",
+                str(self.provider_config.cpu),
                 "--memory",
-                "1GB",
+                self.provider_config.mem,
                 "--size",
-                "5GB",
+                self.provider_config.disk,
                 "--ssh",
             ],
             cwd=str(server_workspace),
