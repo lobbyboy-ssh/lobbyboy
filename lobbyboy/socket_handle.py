@@ -49,12 +49,18 @@ class SocketHandlerThread(threading.Thread):
         if not self.providers:
             send_to_channel(self.channel, "There is no available providers.")
             raise NoProviderException("Do not have available providers to provision a new server!")
-
+        default = None
+        ask_prompt = "Please choose a provider to create a new server: "
+        if len(self.providers) == 1:
+            default = 0
+            default_provider = next(iter(self.providers.keys()))
+            ask_prompt = f"Please choose a provider to create a new server [default: {default_provider}]: "
         user_input = choose_option(
             self.channel,
             list(self.providers.keys()),
             option_prompt="Available VPS providers:",
-            ask_prompt="Please choose a provider to create a new server: ",
+            ask_prompt=ask_prompt,
+            default=default,
         )
         return list(self.providers.values())[user_input]
 
