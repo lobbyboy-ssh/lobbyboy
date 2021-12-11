@@ -7,7 +7,7 @@ from datetime import timedelta, datetime, date
 from enum import Enum, unique
 from io import StringIO
 from pathlib import Path
-from typing import List, Dict, Tuple, Callable, Union, Any, Type
+from typing import List, Dict, Tuple, Callable, Union, Any, Type, Optional
 
 import paramiko
 from paramiko.channel import Channel
@@ -122,11 +122,17 @@ def confirm_dc_type(value: Any, should_be: Type):
     return value
 
 
-def choose_option(channel: Channel, options: List[str], option_prompt: str = None, ask_prompt: str = None) -> int:
+def choose_option(
+    channel: Channel,
+    options: List[str],
+    option_prompt: str = None,
+    ask_prompt: str = None,
+    default: Optional[int] = None,
+) -> int:
     """
     ask user to choose one option from channel
     """
-    logger.info(f"need user choose from {options}\nprompt: {option_prompt}")
+    logger.info(f"need user to choose from {options}\nprompt: {option_prompt}")
     send_to_channel(channel, option_prompt or "Available options:")
     for index, option in enumerate(options):
         send_to_channel(channel, f"{index:>3} - {option}")
@@ -135,7 +141,11 @@ def choose_option(channel: Channel, options: List[str], option_prompt: str = Non
 
     result = read_user_input_line(channel)
     try:
-        num_selected = int(result)
+        if result == "" and default is not None:
+            # User hits enter directly
+            num_selected = default
+        else:
+            num_selected = int(result)
         if 0 <= num_selected < len(options):
             logger.info(f"user choose {result} for option {option_prompt}")
             send_to_channel(channel, f"You selected: {options[num_selected]}")
@@ -143,7 +153,7 @@ def choose_option(channel: Channel, options: List[str], option_prompt: str = Non
         raise Exception(f"user choose {result} for option {option_prompt}, but it's out of range")
     except Exception:  # noqa
         logger.error(f"user choose {result} for option {option_prompt} invalid, re-choose...")
-        send_to_channel(channel, f"unknown choose, please choose again [{0}-{len(options) - 1}]")
+        send_to_channel(channel, f"unknown choice, please choose again [{0}-{len(options) - 1}]")
         return choose_option(channel, options, option_prompt=option_prompt, ask_prompt=ask_prompt)
 
 
