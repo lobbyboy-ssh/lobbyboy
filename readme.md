@@ -144,9 +144,9 @@ WantedBy=multi-user.target
 
 ```bash
 # Generate a config file
-docker run --rm ghcr.io/laixintao/lobbyboy lobbyboy-config-example > lobbyboy_config.toml
+docker run --rm ghcr.io/lobbyboy-ssh/lobbyboy lobbyboy-config-example > lobbyboy_config.toml
 # Run the docker container
-docker run -v `pwd`/lobbyboy_config.toml:/app/config.toml -p "12200:12200" -d ghcr.io/laixintao/lobbyboy
+docker run -v `pwd`/lobbyboy_config.toml:/app/config.toml -p "12200:12200" -d ghcr.io/lobbyboy-ssh/lobbyboy
 ```
 
 The lobbyboy server should be active on 12200 port and you can connect to it
@@ -155,6 +155,10 @@ with
 ```
 ssh Gustave@127.0.0.1 -p 12200
 ```
+
+The default password for user `Gustave` is `Fiennes`. **Please change it when
+you deployed it into production, and consider use ssh key to auth instead of
+password.**
 
 ## Providers
 
