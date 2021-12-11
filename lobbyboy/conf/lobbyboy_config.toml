@@ -144,3 +144,9 @@ load_module = "lobbyboy.contrib.provider.ignite::IgniteProvider"
 enable = true
 min_life_to_live = "0"
 bill_time_unit = "0"
+
+[provider.multipass]
+load_module = "lobbyboy.contrib.provider.multipass::MultipassProvider"
+enable = true
+min_life_to_live = "0"
+bill_time_unit = "0"
