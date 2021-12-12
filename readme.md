@@ -174,6 +174,8 @@ Lobbyboy current support multiple Providers:
   installed)
 - DigitalOcean
 - Linode
+- [Ignite](https://github.com/weaveworks/ignite) (Runs Firecracker VM)
+- [multipass](https://multipass.run)
 
 Different Providers support different configs, please see the
 [example config](https://github.com/laixintao/lobbyboy/blob/main/lobbyboy/conf/lobbyboy_config.toml)
@@ -238,6 +240,13 @@ to check available options.
 Supported Features:
 
 - Create a new Firecracker virtual machine
+- Destroy node when it is not in use.
+
+#### Multipass Provider
+
+Supported Features:
+
+- Create a new virtual machine
 - Destroy node when it is not in use.
 
 ![](./docs/images/do-preview.png)
