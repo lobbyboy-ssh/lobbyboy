@@ -56,7 +56,9 @@ def load_providers(provider_configs: Dict[str, LBConfigProvider], head_workspace
 
         module = importlib.import_module(module_path)
         provider_cls = getattr(module, classname)
-        _providers[name] = provider_cls(name=name, config=config, workspace=head_workspace.joinpath(name))
+        provider = provider_cls(name=name, config=config, workspace=head_workspace.joinpath(name))
+        if provider.is_available():
+            _providers[name] = provider
 
     logger.info(f"{len(_providers)} providers loaded: {_providers.keys()}")
     return _providers

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 import logging
+import subprocess
 import time
 from typing import List, Dict, Callable
 
@@ -102,6 +103,13 @@ class BaseProvider(ABC):
             logger.debug(f"load server data from {_path}")
             return json.load(f)
 
+    def is_available(self) -> bool:
+        """
+        Returns:
+            bool: True if this provider is available, False to disable it
+        """
+        return True
+
     @abstractmethod
     def create_server(self, channel: Channel) -> LBServerMeta:
         """
@@ -167,3 +175,10 @@ class BaseProvider(ABC):
 
     def get_bill(self):
         ...
+
+    def check_command(self, command: List[str]) -> bool:
+        try:
+            process = subprocess.run(command, capture_output=True)
+        except FileNotFoundError:
+            return False
+        return process.returncode == 0
