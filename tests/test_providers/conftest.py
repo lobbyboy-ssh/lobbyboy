@@ -13,7 +13,7 @@ def footloose_provider():
 
 
 @pytest.fixture
-def footloose_servermeta():
+def footloose_server_meta():
     workspace = Path("/tmp/footloose_test/")
     shutil.rmtree(workspace, ignore_errors=True)
     return LBServerMeta(workspace=workspace, provider_name="footloose", server_name="2021-12-05-1405")

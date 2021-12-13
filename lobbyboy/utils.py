@@ -1,3 +1,4 @@
+import importlib
 import os
 import re
 import logging
@@ -273,3 +274,12 @@ def try_load_key_from_file(
     if not (pri_key and pub_key) and raise_error:
         raise FileNotFoundError(f"ssh key pair not found: {private_key_file}/{public_key_file}")
     return pri_key, pub_key
+
+
+def get_cls(cls_path: str = ""):
+    source = cls_path.split("::", maxsplit=1)
+    if len(source) != 2:
+        return
+    module_path, cls_name = source
+    module = importlib.import_module(module_path)
+    return getattr(module, cls_name, None)

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import importlib
 import logging
 import socket
 import sys
@@ -10,7 +9,7 @@ import traceback
 from pathlib import Path
 from typing import Dict
 
-from lobbyboy.config import LBConfig, load_config, LBConfigProvider
+from lobbyboy.config import LBConfig
 from lobbyboy.provider import BaseProvider
 from lobbyboy.socket_handle import SocketHandlerThread
 from lobbyboy.server_killer import ServerKiller
@@ -32,36 +31,6 @@ def setup_logs(level=logging.DEBUG):
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(frm, "%Y%m%d-%H:%M:%S"))
     logging.basicConfig(level=level, handlers=[handler])
-
-
-def load_providers(provider_configs: Dict[str, LBConfigProvider], head_workspace: Path) -> Dict:
-    """
-    Args:
-        provider_configs: provider config loaded from provider part of config file
-        head_workspace: workspace for all provider
-
-    Returns:
-        dict: provider name -> provider instance
-    """
-    from lobbyboy.provider import BaseProvider
-
-    _providers: Dict[str, BaseProvider] = {}
-
-    head_workspace.mkdir(parents=True, exist_ok=True)
-    for name, config in provider_configs.items():
-        if not config.enable:
-            continue
-        module_path, classname = config.load_module.split("::", maxsplit=1)
-        logger.debug(f"loading path: {module_path}, classname: {classname}")
-
-        module = importlib.import_module(module_path)
-        provider_cls = getattr(module, classname)
-        provider = provider_cls(name=name, config=config, workspace=head_workspace.joinpath(name))
-        if provider.is_available():
-            _providers[name] = provider
-
-    logger.info(f"{len(_providers)} providers loaded: {_providers.keys()}")
-    return _providers
 
 
 def prepare_socket(listen_ip: str, listen_port: int) -> socket:
@@ -101,18 +70,26 @@ def main():
     parser.add_argument("-c", "--config", dest="config_path", help="config file path", required=True)
     args = parser.parse_args()
 
-    # load config
-    config: LBConfig = load_config(Path(args.config_path))
+    # Load config.
+    config: LBConfig = LBConfig.load(Path(args.config_path))
+    # Init providers instances.
+    providers = {
+        provider_name: cls(
+            name=provider_name,
+            config=config.provider[provider_name],
+            workspace=config.data_dir.joinpath(provider_name),
+        )
+        for provider_name, cls in config.provider_cls.items()
+    }
 
-    # setup log
+    # Setup log.
     setup_logs(logging.getLevelName(config.log_level))
     confirm_ssh_key_pair(config.data_dir, key_name="ssh_host_rsa_key")
-    # init provider
-    providers: Dict[str, BaseProvider] = load_providers(config.provider, config.data_dir)
-    # prepare socket
-    sock = prepare_socket(config.listen_ip, config.listen_port)
 
-    # set killer
+    # Prepare socket.
+    sock: socket = prepare_socket(config.listen_ip, config.listen_port)
+
+    # Set killer.
     killer = ServerKiller(providers, config.servers_db_path)
     killer_thread = threading.Thread(
         target=killer.patrol,

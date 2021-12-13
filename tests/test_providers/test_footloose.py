@@ -7,20 +7,20 @@ from unittest.mock import call
 
 
 @mock.patch("subprocess.run")
-def test_footloose_destroy(fake_subprocess_run, footloose_provider, footloose_servermeta):
+def test_footloose_destroy(fake_subprocess_run, footloose_provider, footloose_server_meta):
     fake_complete_process = mock.MagicMock()
     fake_complete_process.return_value.returncode = 0
     fake_subprocess_run.side_effect = fake_complete_process
 
-    destroy_command = footloose_provider.destroy_server(footloose_servermeta, None)
+    destroy_command = footloose_provider.destroy_server(footloose_server_meta, None)
     fake_subprocess_run.assert_called_with(
         ["footloose", "delete", "-c", Path("/tmp/footloose_test/footloose.yaml")], capture_output=True
     )
     assert destroy_command is True
 
 
-def test_ssh_server_commands(footloose_provider, footloose_servermeta):
-    command = footloose_provider.ssh_server_command(footloose_servermeta, None)
+def test_ssh_server_commands(footloose_provider, footloose_server_meta):
+    command = footloose_provider.ssh_server_command(footloose_server_meta, None)
     assert command == ["cd /tmp/footloose_test && footloose ssh root@2021-12-05-14050"]
 
 
