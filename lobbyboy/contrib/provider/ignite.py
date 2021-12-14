@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import subprocess
+import sys
 from typing import List
 from dataclasses import dataclass
 
@@ -30,17 +31,15 @@ class IgniteConfig(LBConfigProvider):
 class IgniteProvider(BaseProvider):
     config = IgniteConfig
 
-    # TODO add to pre hook
-    def check_ignite_executable(self):
-        process = subprocess.run(["ignite", "-h"])
-        if process.returncode != 0:
-            raise IgniteException(
-                (
-                    "ignite executable is not exist! "
-                    "Please install ignite via the instrution on "
-                    "https://ignite.readthedocs.io/en/stable/installation/"
-                )
+    def is_available(self) -> bool:
+        if not self.check_command(["ignite", "-h"]):
+            print(
+                "ignite executable is not exist! "
+                "Please install ignite via the instrution on "
+                "https://ignite.readthedocs.io/en/stable/installation/",
+                file=sys.stderr,
             )
+            return False
         return True
 
     def create_server(self, channel: Channel) -> LBServerMeta:

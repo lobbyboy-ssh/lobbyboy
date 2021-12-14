@@ -2,6 +2,7 @@ import logging
 import json
 from pathlib import Path
 import subprocess
+import sys
 from typing import List
 from dataclasses import dataclass
 
@@ -32,13 +33,12 @@ class MultipassConfig(LBConfigProvider):
 class MultipassProvider(BaseProvider):
     config = MultipassConfig
 
-    # TODO add to pre hook
-    def check_multipass_executable(self):
-        process = subprocess.run(["multipass", "-h"])
-        if process.returncode != 0:
-            raise MultipassException(
-                ("multipass executable is not exist! " "Please install it via `snap install multipass`")
+    def is_available(self) -> bool:
+        if not self.check_command(["multipass", "-h"]):
+            print(
+                "multipass executable is not exist! " "Please install it via `snap install multipass`", file=sys.stderr
             )
+            return False
         return True
 
     def create_server(self, channel: Channel) -> LBServerMeta:

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from dataclasses import dataclass
 import subprocess
+import sys
 from typing import List
 
 from paramiko import Channel
@@ -27,17 +28,15 @@ class FootlooseConfig(LBConfigProvider):
 class FootlooseProvider(BaseProvider):
     config = FootlooseConfig
 
-    # TODO add to pre hook
-    def check_footloose_executable(self):
-        process = subprocess.run(["footloose", "-h"])
-        if process.returncode != 0:
-            raise FootlooseException(
-                (
-                    "footloose executable is not exist! "
-                    "Please install footloose via "
-                    "`GO111MODULE=on go get github.com/weaveworks/footloose`"
-                )
+    def is_available(self) -> bool:
+        if not self.check_command(["footloose", "-h"]):
+            print(
+                "footloose executable is not exist! "
+                "Please install footloose via "
+                "`GO111MODULE=on go get github.com/weaveworks/footloose`",
+                file=sys.stderr,
             )
+            return False
         return True
 
     def create_server(self, channel: Channel) -> LBServerMeta:

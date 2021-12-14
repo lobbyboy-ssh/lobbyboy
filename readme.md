@@ -31,6 +31,7 @@
     * [DigitalOcean Provider](#digitalocean-provider)
     * [Linode Provider](#linode-provider)
     * [Ignite(Firecracker) Provider](#ignitefirecracker-provider)
+    * [Multipass Provider](#multipass-provider)
   * [Write Your Own Providers](#write-your-own-providers)
   * [Publish Your Own Providers](#publish-your-own-providers)
 * [FAQ](#faq)
@@ -260,6 +261,15 @@ To make a new Provider work, you need to extend base class
 `lobbyboy.provider.BaseProvider``, implement 2 methods:
 
 ```python
+    def is_available(self) -> bool:
+        """
+        Override this method to check for requirements of this provider
+
+        Returns:
+            bool: True if this provider is available, False to disable it
+        """
+        return True
+
     def create_server(self, channel: Channel) -> LBServerMeta:
         """
         Args:
