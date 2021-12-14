@@ -1,17 +1,19 @@
+import importlib
 import json
 import logging
 import time
-import importlib
 from collections import OrderedDict
-from dataclasses import dataclass, replace, field, fields, asdict
+from dataclasses import asdict, dataclass, field, fields, replace
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Dict, List, Tuple, OrderedDict as typeOrderedDict, Optional
+from typing import Dict, List, Optional
+from typing import OrderedDict as typeOrderedDict
+from typing import Tuple
 
 import toml
 
 from lobbyboy.exceptions import InvalidConfigException
-from lobbyboy.utils import lb_dict_factory, confirm_dc_type
+from lobbyboy.utils import confirm_dc_type, lb_dict_factory
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,11 @@
-from lobbyboy.config import LBServerMeta
 import re
-from unittest import mock
-from freezegun import freeze_time
 from pathlib import Path
+from unittest import mock
 from unittest.mock import call
+
+from freezegun import freeze_time
+
+from lobbyboy.config import LBServerMeta
 
 
 @mock.patch("subprocess.run")

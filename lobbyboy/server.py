@@ -12,7 +12,7 @@ from binascii import hexlify
 import paramiko
 
 from lobbyboy.config import LBConfig
-from lobbyboy.exceptions import UnsupportedPrivateKeyTypeException, NoTTYException
+from lobbyboy.exceptions import NoTTYException, UnsupportedPrivateKeyTypeException
 
 logger = logging.getLogger(__name__)
 

@@ -1,36 +1,37 @@
-from typing import OrderedDict, Tuple, Optional
-
+import logging
 import os
+import select
 import socket
 import threading
-import select
-import logging
-from io import StringIO
 from binascii import hexlify
-from typing import Dict
-
+from io import StringIO
 from subprocess import Popen
+from typing import Dict, Optional, OrderedDict, Tuple
 
 import paramiko
 from paramiko.channel import Channel
 from paramiko.transport import Transport
 
+from lobbyboy import __version__
+from lobbyboy.config import LBConfig, LBServerMeta
+from lobbyboy.exceptions import (
+    NoProviderException,
+    ProviderException,
+    UserCancelException,
+)
+from lobbyboy.provider import BaseProvider
 from lobbyboy.server import Server
 from lobbyboy.server_killer import ServerKiller
 from lobbyboy.utils import (
-    available_server_db_lock,
-    active_session_lock,
     DoGSSAPIKeyExchange,
-    send_to_channel,
-    active_session,
     KeyTypeSupport,
+    active_session,
+    active_session_lock,
+    available_server_db_lock,
     choose_option,
     confirm_ssh_key_pair,
+    send_to_channel,
 )
-from lobbyboy.config import LBConfig, LBServerMeta
-from lobbyboy.exceptions import UserCancelException, ProviderException, NoProviderException
-from lobbyboy.provider import BaseProvider
-from lobbyboy import __version__
 
 logger = logging.getLogger(__name__)
 

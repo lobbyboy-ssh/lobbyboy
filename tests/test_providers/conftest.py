@@ -1,8 +1,10 @@
-from lobbyboy.config import LBServerMeta
 import shutil
-from lobbyboy.contrib.provider.footloose import FootlooseProvider, FootlooseConfig
-import pytest
 from pathlib import Path
+
+import pytest
+
+from lobbyboy.config import LBServerMeta
+from lobbyboy.contrib.provider.footloose import FootlooseConfig, FootlooseProvider
 
 
 @pytest.fixture

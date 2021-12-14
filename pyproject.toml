@@ -27,6 +27,7 @@ pytest = "^6.2.5"
 flake8 = "^4.0.1"
 freezegun = "^1.1.0"
 pytest-cov = "^3.0.0"
+pre-commit = "^2.16.0"
 
 [tool.black]
 target-version = ["py37"]
@@ -34,3 +35,7 @@ line-length = 120
 
 [tool.coverage.run]
 source = ["lobbyboy"]
+
+[tool.isort]
+profile = "black"
+atomic = true

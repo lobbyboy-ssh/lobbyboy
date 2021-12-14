@@ -5,9 +5,14 @@ from typing import Dict, OrderedDict, Tuple
 
 from paramiko import Channel
 
+from lobbyboy.config import LBConfig, LBConfigProvider, LBServerMeta
 from lobbyboy.provider import BaseProvider
-from lobbyboy.utils import available_server_db_lock, humanize_seconds, active_session, to_seconds
-from lobbyboy.config import LBConfigProvider, LBServerMeta, LBConfig
+from lobbyboy.utils import (
+    active_session,
+    available_server_db_lock,
+    humanize_seconds,
+    to_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
