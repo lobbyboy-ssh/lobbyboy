@@ -1,13 +1,13 @@
-from dataclasses import dataclass
 import logging
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
 from paramiko import Channel
 
 from lobbyboy.config import LBConfigProvider, LBServerMeta
-from lobbyboy.exceptions import VagrantProviderException, NoAvailableNameException
+from lobbyboy.exceptions import NoAvailableNameException, VagrantProviderException
 from lobbyboy.provider import BaseProvider
 from lobbyboy.utils import send_to_channel
 
