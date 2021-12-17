@@ -19,6 +19,7 @@ paramiko = {extras = ["gssapi"], version = "^2.8.0"}
 python-digitalocean = "^1.17.0"
 toml = "^0.10.2"
 linode-api4 = "^5.2.1"
+pyvultr = "^0.1.4"
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"

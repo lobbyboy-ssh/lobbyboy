@@ -27,7 +27,7 @@ from lobbyboy.utils import (
     choose_option,
     confirm_ssh_key_pair,
 )
-from lobbyboy.config import LBConfig, LBServerMeta
+from lobbyboy.config import LBConfig, LBServerMeta, update_local_servers, load_local_servers
 from lobbyboy.exceptions import UserCancelException, ProviderException, NoProviderException
 from lobbyboy.provider import BaseProvider
 from lobbyboy import __version__
@@ -65,7 +65,7 @@ class SocketHandlerThread(threading.Thread):
         return list(self.providers.values())[user_input]
 
     def choose_server(self) -> LBServerMeta:
-        available_servers: OrderedDict[str, LBServerMeta] = LBConfig.load_local_servers(self.config.servers_db_path)
+        available_servers: OrderedDict[str, LBServerMeta] = load_local_servers(self.config.servers_db_path)
         if not available_servers:
             send_to_channel(self.channel, "There is no available servers, provision a new server...")
             return self._ask_user_to_create_server()
@@ -93,7 +93,7 @@ class SocketHandlerThread(threading.Thread):
         meta: LBServerMeta = provider.create_server(self.channel)
 
         with available_server_db_lock:
-            LBConfig.update_local_servers(self.config.servers_db_path, new=[meta])
+            update_local_servers(self.config.servers_db_path, new=[meta])
         return meta
 
     def _create_proxy_process(self, slave_fd) -> Tuple[Popen, LBServerMeta]:

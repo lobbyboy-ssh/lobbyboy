@@ -7,7 +7,7 @@ from paramiko import Channel
 
 from lobbyboy.provider import BaseProvider
 from lobbyboy.utils import available_server_db_lock, humanize_seconds, active_session, to_seconds
-from lobbyboy.config import LBConfigProvider, LBServerMeta, LBConfig
+from lobbyboy.config import LBConfigProvider, LBServerMeta, update_local_servers, load_local_servers
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class ServerKiller:
             time.sleep(cycle_sec)
 
     def check_all_live_servers(self):
-        metas: OrderedDict[str, LBServerMeta] = LBConfig.load_local_servers(self.servers_db_path)
+        metas: OrderedDict[str, LBServerMeta] = load_local_servers(self.servers_db_path)
 
         for server_name, meta in metas.items():
             provider: BaseProvider
@@ -89,4 +89,4 @@ class ServerKiller:
             raise Exception(f"destroy failed, provider {provider.name} server {meta.server_name} not manage by me!")
         provider.destroy_server(meta, channel)
         with available_server_db_lock:
-            LBConfig.update_local_servers(self.servers_db_path, deleted=[meta])
+            update_local_servers(self.servers_db_path, deleted=[meta])

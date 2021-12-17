@@ -150,3 +150,17 @@ load_module = "lobbyboy.contrib.provider.multipass::MultipassProvider"
 enable = true
 min_life_to_live = "0"
 bill_time_unit = "0"
+
+[provider.vultr]
+load_module = "lobbyboy.contrib.provider.vultr::VultrProvider"
+min_life_to_live = "1h"
+bill_time_unit = "1h"
+
+# Will try to read from environment variables first, ``VULTR_TOKEN``
+# if empty, then use this config
+# api_token = ""
+
+# format: regions.id:plan.id:image.id
+favorite_instance_types = [
+   "sgp:vc2-1c-1gb:362",
+]
