@@ -7,10 +7,12 @@
 >
 > <p align='right'>--The Grand Budapest Hotel</p>
 
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/lobbyboy-ssh/lobbyboy/main.svg)](https://results.pre-commit.ci/latest/github/lobbyboy-ssh/lobbyboy/main)
 [![Test](https://github.com/lobbyboy-ssh/lobbyboy/actions/workflows/unittest.yaml/badge.svg?branch=main)](https://github.com/lobbyboy-ssh/lobbyboy/actions/workflows/unittest.yaml)
-[![codecov](https://codecov.io/gh/lobbyboy-ssh/lobbyboy/branch/main/graph/badge.svg?token=2HC7YDQBGT)](https://codecov.io/gh/lobbyboy-ssh/lobbyboy)
+
 <a href="https://badge.fury.io/py/lobbyboy"><img src="https://badge.fury.io/py/lobbyboy.svg" alt="PyPI version"></a>
 <img src="https://badgen.net/badge/python/3.7%20%7C%203.8%20%7C%203.9/" alt="Python version">
+[![codecov](https://codecov.io/gh/lobbyboy-ssh/lobbyboy/branch/main/graph/badge.svg?token=2HC7YDQBGT)](https://codecov.io/gh/lobbyboy-ssh/lobbyboy)
 
 **This project is still under testing, it worked but may have bugs.**
 
