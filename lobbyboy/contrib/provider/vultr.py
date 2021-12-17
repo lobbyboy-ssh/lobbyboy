@@ -14,7 +14,7 @@ from lobbyboy.provider import BaseProvider
 from lobbyboy.utils import choose_option, port_is_open, send_to_channel
 
 logger = logging.getLogger(__name__)
-ENV_TOKEN_NAME = "VULTR_TOKEN"
+ENV_TOKEN_NAME = "VULTR_TOKEN"  # nosec: false B105(hardcoded_password_string) by bandit
 
 
 @dataclass
