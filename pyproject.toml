@@ -40,3 +40,13 @@ source = ["lobbyboy"]
 [tool.isort]
 profile = "black"
 atomic = true
+
+[tool.bandit]
+recursive = true
+# B108: Probable insecure usage of temp file/directory.
+# B602: Subprocess call with shell=True identified, security issue.
+# B404: Consider possible security implications associated with the subprocess module.
+# B603: Subprocess call - check for execution of untrusted input.
+# B607: Starting a process with a partial executable path.
+skips = ["B108", "B602", "B404", "B603", "B607"]
+assert_used.skips = ['tests/test_*.py']
