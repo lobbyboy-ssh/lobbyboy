@@ -9,7 +9,7 @@ from paramiko.channel import Channel
 
 from lobbyboy.config import LBConfigProvider, LBServerMeta
 from lobbyboy.provider import BaseProvider
-from lobbyboy.utils import choose_option, lb_dict_factory, port_is_open, send_to_channel
+from lobbyboy.utils import choose_option, dict_factory, port_is_open, send_to_channel
 
 logger = logging.getLogger(__name__)
 ENV_TOKEN_NAME = "DIGITALOCEAN_TOKEN"  # nosec: false B105(hardcoded_password_string) by bandit
@@ -78,9 +78,7 @@ class DigitalOceanProvider(BaseProvider):
         send_to_channel(channel, f"New server {server_name} (IP: {droplet.ip_address}) created!")
 
         # save server info to local first
-        droplet_meta = lb_dict_factory(
-            droplet.__dict__, ignore_fields=["tokens"], ignore_rules=lambda x: x.startswith("_")
-        )
+        droplet_meta = dict_factory(droplet.__dict__, ignore_fields=["tokens"], ignore_rule=lambda x: x.startswith("_"))
         self.save_raw_server(droplet_meta, workspace)
 
         # wait for server to startup(check port is alive or not)

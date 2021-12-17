@@ -36,3 +36,7 @@ class NoTTYException(ProviderException):
 
 class VagrantProviderException(ProviderException):
     pass
+
+
+class CantEnsureBytesException(ProviderException):
+    ...
