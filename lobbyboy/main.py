@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict
 
 from lobbyboy.config import LBConfig
-from lobbyboy.config import LBConfig, LBConfigProvider, load_config
 from lobbyboy.provider import BaseProvider
 from lobbyboy.server_killer import ServerKiller
 from lobbyboy.socket_handle import SocketHandlerThread

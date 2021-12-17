@@ -20,6 +20,7 @@ python-digitalocean = "^1.17.0"
 toml = "^0.10.2"
 linode-api4 = "^5.2.1"
 pyvultr = "^0.1.4"
+pre-commit = "^2.16.0"
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
@@ -28,7 +29,6 @@ pytest = "^6.2.5"
 flake8 = "^4.0.1"
 freezegun = "^1.1.0"
 pytest-cov = "^3.0.0"
-pre-commit = "^2.16.0"
 
 [tool.black]
 target-version = ["py37"]
