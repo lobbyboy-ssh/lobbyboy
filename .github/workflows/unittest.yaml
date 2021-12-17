@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python: ['3.7', '3.8', '3.9']
+        python: ["3.7", "3.8", "3.9", "3.10"]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
-          architecture: 'x64'
+          architecture: "x64"
       - name: Install system dependencies
         run: sudo apt install -y libkrb5-dev
       - name: Cache venv
@@ -47,39 +47,3 @@ jobs:
           file: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
-  lint:
-    name: flake8 & black
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v1
-        with:
-          python-version: 3.7
-          architecture: 'x64'
-      - name: Cache venv
-        uses: actions/cache@v2
-        with:
-          path: venv
-          # Look to see if there is a cache hit for the corresponding requirements file
-          key: lintenv-v2
-      - name: Install Dependencies
-        run: |
-          python3 -m venv venv
-          . venv/bin/activate
-          pip install -U pip flake8 black
-      - name: Flake8 test
-        run: |
-          . venv/bin/activate
-          flake8 .
-      - name: Black test
-        run: |
-          . venv/bin/activate
-          black --check .
-  spellcheck:
-    name: spellcheck
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: codespell-project/actions-codespell@master
