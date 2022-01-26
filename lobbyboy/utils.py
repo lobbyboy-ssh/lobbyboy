@@ -4,7 +4,9 @@ import os
 import re
 import socket
 import threading
+from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from enum import Enum, unique
 from io import StringIO
 from pathlib import Path
@@ -14,6 +16,7 @@ import paramiko
 from paramiko.channel import Channel
 
 from lobbyboy.exceptions import (
+    CantEnsureBytesException,
     TimeStrParseTypeException,
     UnsupportedPrivateKeyTypeException,
     UserCancelException,
@@ -35,26 +38,50 @@ UNIT_SEC_PAIRS = {
 }
 
 
-def lb_dict_factory(d: Union[Dict, Tuple], ignore_fields: List[str] = None, ignore_rules: Callable = None) -> Dict:
+def encoder_factory(
+    date_fmt: str = "%Y-%m-%d",
+    dt_fmt: str = "%Y-%m-%d %H:%M:%S",
+    decimal_factory: Callable = str,
+    path_factory: Callable = str,
+    dataclass_factory: Callable = asdict,
+    *,
+    raise_error: bool = True,
+):
+    """Serialize additional types."""
+
+    def encoder(obj):
+        if isinstance(obj, datetime):
+            return obj.strftime(dt_fmt)
+        elif isinstance(obj, date):
+            return obj.strftime(date_fmt)
+        elif isinstance(obj, Decimal):
+            return decimal_factory(obj)
+        elif isinstance(obj, Path):
+            return path_factory(obj)
+        elif is_dataclass(obj):
+            return dataclass_factory(obj)
+        elif not raise_error:
+            return obj
+        raise TypeError("%r is not JSON serializable" % obj)
+
+    return encoder
+
+
+def dict_factory(d: Dict, ignore_fields: List[str] = None, ignore_rule: Callable = None, encoder: Type = None) -> Dict:
     _ignore_fields = ignore_fields or []
-    _ignore_rules = ignore_rules or (lambda x: False)
-    dd = d.items() if isinstance(d, dict) else d
-    _d = {}
-    for k, v in dd:
-        if k is None:
+    _ignore_rule = ignore_rule or (lambda x: False)
+    filtered_dict = {}
+    for k, v in d.items():
+        if any(
+            (
+                k is None,
+                k in _ignore_fields,
+                _ignore_rule(k),
+            )
+        ):
             continue
-        if k in _ignore_fields:
-            continue
-        if _ignore_rules(k):
-            continue
-        if isinstance(v, Path):
-            v = str(v)
-        if isinstance(v, datetime):
-            v = v.strftime("%Y-%m-%d %H:%M:%S")
-        if isinstance(v, date):
-            v = v.strftime("%Y-%m-%d")
-        _d[k] = v
-    return _d
+        filtered_dict[k] = encoder(v) if encoder else v
+    return filtered_dict
 
 
 def port_is_open(ip: str, port: int = 22) -> bool:
@@ -76,7 +103,7 @@ def to_seconds(time_str: str) -> int:
     if time_str == "0":
         return 0
     for unit, sec in UNIT_SEC_PAIRS.items():
-        re_time_str = r"(\d+){unit}".format(unit=unit)
+        re_time_str = r"^(\d+){unit}$".format(unit=unit)
         matched = re.match(re_time_str, time_str)
         if matched:
             return int(matched.group(1)) * sec
@@ -84,14 +111,16 @@ def to_seconds(time_str: str) -> int:
 
 
 def humanize_seconds(seconds: int):
-    """human-readable, eg: 364121 -> '4 days 5:08:41'"""
+    """human-readable, eg: 364121 -> '4 days, 5:08:41'"""
     return str(timedelta(seconds=seconds))
 
 
 def ensure_bytes(s: Union[str, bytes]) -> bytes:
     if isinstance(s, str):
         return s.encode()
-    return s
+    if isinstance(s, bytes):
+        return s
+    raise CantEnsureBytesException()
 
 
 def send_to_channel(
@@ -280,8 +309,8 @@ def try_load_key_from_file(
     return pri_key, pub_key
 
 
-def get_cls(cls_path: str = ""):
-    source = cls_path.split("::", maxsplit=1)
+def import_class(cls_path: str = ""):
+    source = cls_path.split("::")
     if len(source) != 2:
         return
     module_path, cls_name = source

@@ -12,7 +12,7 @@ from typing import Tuple, Type
 import toml
 
 from lobbyboy.exceptions import InvalidConfigException
-from lobbyboy.utils import confirm_dc_type, get_cls, lb_dict_factory
+from lobbyboy.utils import confirm_dc_type, encoder_factory, import_class
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ class LBConfig:
                 continue
 
             load_module = config.get("load_module", "")
-            provider_cls = get_cls(load_module)
+            provider_cls = import_class(load_module)
             if not provider_cls:
                 raise InvalidConfigException(
                     f'Invalid `load_module` config for {name}, it must be in format "module_path::class_name", '
@@ -196,6 +196,6 @@ def update_local_servers(
         local_servers.pop(server.server_name, None)
 
     with open(servers_db_path, "w+") as f:
-        c = [asdict(i, dict_factory=lb_dict_factory) for i in local_servers.values()]  # noqa
-        f.write(json.dumps(c))
+        c = [asdict(i) for i in local_servers.values()]  # type: ignore
+        f.write(json.dumps(c, default=encoder_factory()))
     return local_servers
