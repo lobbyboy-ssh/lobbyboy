@@ -169,8 +169,7 @@ class BaseProvider(ABC):
         logger.info(f"returning ssh command: {command}")
         return command
 
-    def get_bill(self):
-        ...
+    def get_bill(self): ...
 
     def check_command(self, command: List[str]) -> bool:
         try:
