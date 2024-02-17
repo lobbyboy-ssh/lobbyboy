@@ -38,5 +38,4 @@ class VagrantProviderException(ProviderException):
     pass
 
 
-class CantEnsureBytesException(ProviderException):
-    ...
+class CantEnsureBytesException(ProviderException): ...
