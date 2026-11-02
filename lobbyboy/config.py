@@ -5,9 +5,8 @@ from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, fields
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Type
 from typing import OrderedDict as typeOrderedDict
-from typing import Tuple, Type
 
 import toml
 
